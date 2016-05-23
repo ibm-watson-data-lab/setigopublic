@@ -1,5 +1,26 @@
 {
-	"ImportPath": "gohelloworld",
-	"GoVersion": "go1.4.3",
-	"Deps": []
+	"ImportPath": "github.com/gadamc/setigopublic",
+	"GoVersion": "go1.4",
+	"GodepVersion": "v70",
+	"Deps": [
+		{
+			"ImportPath": "bitbucket.org/phiggins/db2cli",
+			"Comment": "null-44",
+			"Rev": "'347a77fd71abb55325ebea9ca6c2a71c614e9a21'"
+		},
+		{
+			"ImportPath": "bitbucket.org/phiggins/db2cli/api",
+			"Comment": "null-44",
+			"Rev": "'347a77fd71abb55325ebea9ca6c2a71c614e9a21'"
+		},
+		{
+			"ImportPath": "github.com/cloudfoundry-community/go-cfenv",
+			"Comment": "v1.13",
+			"Rev": "18fa650ff6b7b4f6bd8f8611408d1533eb54a918"
+		},
+		{
+			"ImportPath": "github.com/mitchellh/mapstructure",
+			"Rev": "d2dd0262208475919e1a362f675cfc0e7c10e905"
+		}
+	]
 }
