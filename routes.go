@@ -21,15 +21,15 @@ var routes = Routes{
         Index,
     },
     Route{
-        "Rows",
+        "AcaByCoordinates",
         "GET",
-        "/rows",
-        RowIndex,
+        "/acabycoordinates",
+        AcaByCoordinates,
     },
     Route{
-        "Connect",
+        "KnownCandCoordinates",
         "GET",
-        "/connect",
-        connect,
+        "/acacoordinates",
+        KnownCandCoordinates,
     },
-}
+  }
