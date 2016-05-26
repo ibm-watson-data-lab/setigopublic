@@ -7,3 +7,6 @@ applications:
   host: setigopublic
   disk_quota: 1024M
   buildpack: https://github.com/ibmdb/db2gobuildpack
+  env:
+    CF_STARTUP_TIMEOUT: 15
+    CF_STAGING_TIMEOUT: 15
