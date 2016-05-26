@@ -14,8 +14,15 @@ import (
   "errors"
 )
 
-var dashDB, dashdbuser, dashdbpass = fetchCredentials()
+var (
+  dashDB cfenv.Service 
+  dashdbuser string 
+  dashdbpass string
+)
 
+func init() {
+  dashDB, dashdbuser, dashdbpass = fetchCredentials()
+}
 
 func fetchCredentials() (cfenv.Service, string, string) {
 
@@ -86,13 +93,13 @@ func AcaByCoordinates(w http.ResponseWriter, r *http.Request) {
 
 	coordinates.RA, err = strconv.ParseFloat(r.URL.Query().Get("RA"), 64)
 	if err != nil {
-		ReturnError(w, 400, "missing_data", "No Ra value.")
+		ReturnError(w, 400, "missing_data", "No RA value.")
 		return
 	}
 
-	coordinates.Dec, err = strconv.ParseFloat(r.URL.Query().Get("Dec"), 64)
+	coordinates.Dec, err = strconv.ParseFloat(r.URL.Query().Get("DEC"), 64)
 	if err != nil {
-		ReturnError(w, 400, "missing_data", "No Dec value.")
+		ReturnError(w, 400, "missing_data", "No DEC value.")
 		return
 	}
 
