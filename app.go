@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+  cfenv "github.com/cloudfoundry-community/go-cfenv"
+  "strconv"
 )
 
 const (
@@ -13,10 +15,17 @@ const (
 
 func main() {
 
-	var port string
-	if port = os.Getenv("PORT"); len(port) == 0 {
-		port = DEFAULT_PORT
-	}
+  var port string
+
+  appEnv, err := cfenv.Current()
+  if err != nil {
+    //we are not in a CF environment. Attempt to get PORT from local envars
+  	if port = os.Getenv("PORT"); len(port) == 0 {
+		  port = DEFAULT_PORT
+	 }
+  } else {
+    port = strconv.Itoa(appEnv.Port)
+  }
 
 	router := NewRouter()
 
