@@ -2,6 +2,9 @@
 	"ImportPath": "github.com/gadamc/setigopublic",
 	"GoVersion": "go1.4",
 	"GodepVersion": "v70",
+	"Packages": [
+		"./..."
+	],
 	"Deps": [
 		{
 			"ImportPath": "bitbucket.org/phiggins/db2cli",
@@ -19,8 +22,43 @@
 			"Rev": "18fa650ff6b7b4f6bd8f8611408d1533eb54a918"
 		},
 		{
+			"ImportPath": "github.com/gorilla/context",
+			"Comment": "v1.1-2-ga8d44e7",
+			"Rev": "a8d44e7d8e4d532b6a27a02dd82abb31cc1b01bd"
+		},
+		{
+			"ImportPath": "github.com/gorilla/mux",
+			"Comment": "v1.1-7-g9c19ed5",
+			"Rev": "9c19ed558d5df4da88e2ade9c8940d742aef0e7e"
+		},
+		{
+			"ImportPath": "github.com/jmoiron/sqlx",
+			"Comment": "sqlx-v1.1-65-ga7f971f",
+			"Rev": "a7f971fe8ea891a1a74ddb40c623f5722e28e8a8"
+		},
+		{
+			"ImportPath": "github.com/jmoiron/sqlx/reflectx",
+			"Comment": "sqlx-v1.1-65-ga7f971f",
+			"Rev": "a7f971fe8ea891a1a74ddb40c623f5722e28e8a8"
+		},
+		{
+			"ImportPath": "github.com/lib/pq",
+			"Comment": "go1.0-cutoff-96-gee1442b",
+			"Rev": "ee1442bda7bd1b6a84e913bdb421cb1874ec629d"
+		},
+		{
+			"ImportPath": "github.com/lib/pq/oid",
+			"Comment": "go1.0-cutoff-96-gee1442b",
+			"Rev": "ee1442bda7bd1b6a84e913bdb421cb1874ec629d"
+		},
+		{
 			"ImportPath": "github.com/mitchellh/mapstructure",
 			"Rev": "d2dd0262208475919e1a362f675cfc0e7c10e905"
+		},
+		{
+			"ImportPath": "gopkg.in/guregu/null.v3",
+			"Comment": "v3.1",
+			"Rev": "41961cea0328defc5f95c1c473f89ebf0d1813f6"
 		}
 	]
 }
