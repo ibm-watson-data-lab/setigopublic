@@ -16,6 +16,7 @@ const (
 func main() {
 
   var port string
+  fmt.Println("Searching for PORT")
 
   appEnv, err := cfenv.Current()
   if err != nil {
