@@ -20,9 +20,9 @@ var (
   dashdbpass string
 )
 
-func init() {
-  dashDB, dashdbuser, dashdbpass = fetchCredentials()
-}
+//func init() {
+//  dashDB, dashdbuser, dashdbpass = fetchCredentials()
+//}
 
 func fetchCredentials() (cfenv.Service, string, string) {
 
@@ -117,7 +117,7 @@ func AcaByCoordinates(w http.ResponseWriter, r *http.Request) {
     }  
   }
 
-	
+	dashDB, dashdbuser, dashdbpass = fetchCredentials()
 
 	connStr := []string{"DATABASE=", dashDB.Credentials["db"].(string), ";", "HOSTNAME=", dashDB.Credentials["hostname"].(string), ";",
 		"PORT=", strconv.FormatFloat(dashDB.Credentials["port"].(float64), 'f', 0, 64), ";", "PROTOCOL=TCPIP", ";", "UID=", dashdbuser, ";", "PWD=", dashdbpass}
@@ -233,7 +233,8 @@ func KnownCandCoordinates(w http.ResponseWriter, r *http.Request) {
     }  
   }
   
-
+  dashDB, dashdbuser, dashdbpass = fetchCredentials()
+  
   connStr := []string{"DATABASE=", dashDB.Credentials["db"].(string), ";", "HOSTNAME=", dashDB.Credentials["hostname"].(string), ";",
     "PORT=", strconv.FormatFloat(dashDB.Credentials["port"].(float64), 'f', 0, 64), ";", "PROTOCOL=TCPIP", ";", "UID=", dashdbuser, ";", "PWD=", dashdbpass}
   conn := strings.Join(connStr, "")
