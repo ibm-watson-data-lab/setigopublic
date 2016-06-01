@@ -53,5 +53,5 @@ type CelestialCoordinates struct {
 type KnownACACoordinate struct {
     RA2000HR float64  `json:"ra2000hr"`
     DEC2000DEG float64 `json:"dec2000deg"`
-    NUMBER_OF_ACA int64 `json:"number_of_aca"`
+    NUMBER_OF_ACA int64 `json:"number_of_rows"`
   }
