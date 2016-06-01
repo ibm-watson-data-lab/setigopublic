@@ -91,17 +91,29 @@ func AcaByCoordinates(w http.ResponseWriter, r *http.Request) {
 	var coordinates CelestialCoordinates
 	var err error = nil
 
+  //todo. Change RA=X,DEC=Y to "coordinates=X,Y"
+  //OR API to  /v1/candidate/single_aca/{coordinates}
+  //vars := mux.Vars(r)
+  //coords := vars["coordinates"]  
+  //split coords on ',' and parse RA/DEC to float
+
 	coordinates.RA, err = strconv.ParseFloat(r.URL.Query().Get("RA"), 64)
 	if err != nil {
-		ReturnError(w, 400, "missing_data", "No RA value.")
-		return
-	}
+    coordinates.RA, err = strconv.ParseFloat(r.URL.Query().Get("ra"), 64)
+    if err != nil {
+  		ReturnError(w, 400, "missing_data", "No RA value.")
+	 	 return
+	  }
+  }
 
 	coordinates.Dec, err = strconv.ParseFloat(r.URL.Query().Get("DEC"), 64)
-	if err != nil {
-		ReturnError(w, 400, "missing_data", "No DEC value.")
-		return
-	}
+  if err != nil {
+    coordinates.RA, err = strconv.ParseFloat(r.URL.Query().Get("dec"), 64)
+  	if err != nil {
+  		ReturnError(w, 400, "missing_data", "No DEC value.")
+  		return
+  	}
+  }
 
 	//use this to allow for a query to skip a number of initial rows
 	//we limit the output of this query to a maximum of 200 rows per query
@@ -155,6 +167,9 @@ func AcaByCoordinates(w http.ResponseWriter, r *http.Request) {
     ORDER BY SDB.UNIQUEID 
     LIMIT ? OFFSET ?`, coordinates.RA + 0.01, coordinates.RA - 0.01, coordinates.Dec + 0.01, coordinates.Dec - 0.01, limit, skiprows )
 
+  //todo: GROUP BY OBJECTNAME -- so we only send unique object names?
+  //OR should I group the results here instead?, allowing for multiple sets of signalDB rows to 
+  //be returned? Can probably do that within the SQL query
 
   if err != nil {
     ReturnError(w, 500, "query_rows_error", err.Error())

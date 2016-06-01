@@ -21,15 +21,40 @@ var routes = Routes{
         Index,
     },
     Route{
-        "AcaByCoordinates",
+        "ACASingleFileByCoordinates",
         "GET",
-        "/acabycoordinates",
+        "/v1/aca/single", //v1/aca/single/{ra,dec} ??
         AcaByCoordinates,
     },
+    // Route{
+    //     "AcaBlockByTGTID",
+    //     "GET",
+    //     "/v1/aca/block/{tgtid}
+    //     AcaBlockByTgtid,
+    // },
     Route{
         "KnownCandCoordinates",
         "GET",
-        "/acacoordinates",
+        "/v1/coordinates/aca",
         KnownCandCoordinates,
     },
+    // ### Potential future API ### 
+    // Route{
+    //     "CompampSingleFileByCoordinates",
+    //     "GET",
+    //     "/v1/compamp/rawfile", //v1/compamp/rawfile/{ra,dec} ??
+    //     CompampSingleFileByCoordinates,
+    // }
+    // Route{
+    //     "AllKnownCoordinates",
+    //     "GET",
+    //     "/v1/coordinates",  //with many options
+    //     AllKnownCoordinates,
+    // },
+    // Route
+    //     "AcaByCoordinates",
+    //     "GET",
+    //     "/v1/kepler_target",
+    //     AcaByCoordinates,
+    // },
   }
