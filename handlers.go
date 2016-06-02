@@ -97,6 +97,7 @@ func AcaByCoordinates(w http.ResponseWriter, r *http.Request) {
   //coords := vars["coordinates"]  
   //split coords on ',' and parse RA/DEC to float
 
+  //can I "lower" all of the URL query keys?
 	coordinates.RA, err = strconv.ParseFloat(r.URL.Query().Get("RA"), 64)
 	if err != nil {
     coordinates.RA, err = strconv.ParseFloat(r.URL.Query().Get("ra"), 64)
@@ -108,7 +109,7 @@ func AcaByCoordinates(w http.ResponseWriter, r *http.Request) {
 
 	coordinates.Dec, err = strconv.ParseFloat(r.URL.Query().Get("DEC"), 64)
   if err != nil {
-    coordinates.RA, err = strconv.ParseFloat(r.URL.Query().Get("dec"), 64)
+    coordinates.Dec, err = strconv.ParseFloat(r.URL.Query().Get("dec"), 64)
   	if err != nil {
   		ReturnError(w, 400, "missing_data", "No DEC value.")
   		return
@@ -146,10 +147,10 @@ func AcaByCoordinates(w http.ResponseWriter, r *http.Request) {
 	
   var totalNumRows int64
 
-  row := db.QueryRow(`SELECT count(*) FROM (SELECT UNIQUEID FROM SETIUSERS.SIGNALDB WHERE SIGCLASS='Cand' AND RA2000HR < ? 
-    AND RA2000HR > ? AND DEC2000DEG < ? AND DEC2000DEG > ?) as SDB 
+  row := db.QueryRow(`SELECT count(*) FROM (SELECT UNIQUEID FROM SETIUSERS.SIGNALDB WHERE SIGCLASS='Cand'
+    AND RA2000HR = ? AND DEC2000DEG = ?) as SDB 
     INNER JOIN  SETIUSERS.SDB_PATH_TO_ACA AS ACA 
-    ON SDB.UNIQUEID = ACA.UNIQUEID`, coordinates.RA + 0.01, coordinates.RA - 0.01, coordinates.Dec + 0.01, coordinates.Dec - 0.01 )
+    ON SDB.UNIQUEID = ACA.UNIQUEID`, coordinates.RA, coordinates.Dec)
 
   err = row.Scan(&totalNumRows)
   if err != nil {
@@ -160,12 +161,11 @@ func AcaByCoordinates(w http.ResponseWriter, r *http.Request) {
   signalDBJoinACAPaths := []SignalDBJoinACAPath{}
 
   err = db.Select(&signalDBJoinACAPaths, `SELECT SDB.*, ACA.CONTAINER AS CONTAINER, ACA.OBJECTNAME AS OBJECTNAME
-    FROM (SELECT * FROM SETIUSERS.SIGNALDB WHERE SIGCLASS='Cand' AND RA2000HR < ? 
-    AND RA2000HR > ? AND DEC2000DEG < ? AND DEC2000DEG > ?) as SDB 
+    FROM (SELECT * FROM SETIUSERS.SIGNALDB WHERE SIGCLASS='Cand' AND RA2000HR = ? AND DEC2000DEG = ?) as SDB 
     INNER JOIN  SETIUSERS.SDB_PATH_TO_ACA AS ACA 
     ON SDB.UNIQUEID = ACA.UNIQUEID 
     ORDER BY SDB.UNIQUEID 
-    LIMIT ? OFFSET ?`, coordinates.RA + 0.01, coordinates.RA - 0.01, coordinates.Dec + 0.01, coordinates.Dec - 0.01, limit, skiprows )
+    LIMIT ? OFFSET ?`, coordinates.RA, coordinates.Dec, limit, skiprows )
 
   //todo: GROUP BY OBJECTNAME -- so we only send unique object names?
   //OR should I group the results here instead?, allowing for multiple sets of signalDB rows to 
