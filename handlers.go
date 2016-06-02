@@ -242,7 +242,7 @@ func KnownCandCoordinates(w http.ResponseWriter, r *http.Request) {
   }
   decmax := 90.0
   if r.URL.Query().Get("decmax") != "" {
-    decmax, _ := strconv.ParseFloat(r.URL.Query().Get("decmax"), 64)
+    decmax, _ = strconv.ParseFloat(r.URL.Query().Get("decmax"), 64)
     if decmax > 90 {
       decmax = 90.0
     }  
