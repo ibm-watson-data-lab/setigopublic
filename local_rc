@@ -2,3 +2,15 @@ export VCAP_SERVICES='{ "dashDB": [ { "name": "dashDB-xxx", "label": "dashDB", "
 
 export DASHDBUSER='zzzzzzzzzzz'
 export DASHDBPASS='ppppppppppp'
+
+
+export SWIFT_API_USER=""
+export SWIFT_API_KEY=""
+export SWIFT_AUTH_URL="https://identity.open.softlayer.com"
+export SWIFT_API_DOMAIN=""
+export SWIFT_API_DOMAIN_ID=""
+export SWIFT_TENANT=""
+export SWIFT_TENANT_ID=""
+
+#this value should match the value set by `swift post -m "Temp-URL-Key: my_super_secret_key"`
+export SWIFT_SECRET_KEY=""  

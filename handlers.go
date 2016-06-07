@@ -12,6 +12,9 @@ import (
 	"strings"
   "fmt"
   "errors"
+  "github.com/ncw/swift"
+  "github.com/gorilla/mux"
+  "time"
 )
 
 var (
@@ -20,15 +23,17 @@ var (
   dashdbpass string
 )
 
-//func init() {
-//  dashDB, dashdbuser, dashdbpass = fetchCredentials()
+// this didn't seem to work the first time I tried it... ??
+// perhaps because CF Env wasn't set up? 
+//func init() {  
+//  dashDB, dashdbuser, dashdbpass = getDashDBCreds()
 //}
 
-func fetchCredentials() (cfenv.Service, string, string) {
+func getDashDBCreds() (cfenv.Service, string, string) {
 
   // Returns the dashdB Service, plus DASHDBUSER, DASHDBPASS
 
-  //Fetch dashDB service details
+  //get dashDB service details
   var dashDB cfenv.Service
 
   appEnv, err := cfenv.Current()
@@ -130,7 +135,7 @@ func AcaByCoordinates(w http.ResponseWriter, r *http.Request) {
     }  
   }
 
-	dashDB, dashdbuser, dashdbpass = fetchCredentials()
+	dashDB, dashdbuser, dashdbpass = getDashDBCreds()
 
 	connStr := []string{"DATABASE=", dashDB.Credentials["db"].(string), ";", "HOSTNAME=", dashDB.Credentials["hostname"].(string), ";",
 		"PORT=", strconv.FormatFloat(dashDB.Credentials["port"].(float64), 'f', 0, 64), ";", "PROTOCOL=TCPIP", ";", "UID=", dashdbuser, ";", "PWD=", dashdbpass}
@@ -248,7 +253,7 @@ func KnownCandCoordinates(w http.ResponseWriter, r *http.Request) {
     }  
   }
   
-  dashDB, dashdbuser, dashdbpass = fetchCredentials()
+  dashDB, dashdbuser, dashdbpass = getDashDBCreds()
   
   connStr := []string{"DATABASE=", dashDB.Credentials["db"].(string), ";", "HOSTNAME=", dashDB.Credentials["hostname"].(string), ";",
     "PORT=", strconv.FormatFloat(dashDB.Credentials["port"].(float64), 'f', 0, 64), ";", "PROTOCOL=TCPIP", ";", "UID=", dashdbuser, ";", "PWD=", dashdbpass}
@@ -299,4 +304,105 @@ func KnownCandCoordinates(w http.ResponseWriter, r *http.Request) {
     panic(err)
   }
 }
+
+    
+func getSetiPublicConnection() swift.Connection {
+  var c swift.Connection
+
+  appEnv, err := cfenv.Current()
+  if err != nil {
+    //we are not in a CF environment. Attempt to get credentials from local envars
+    //we use the same envar names that are used in the swift library tests
+    
+    c = swift.Connection{
+      UserName: os.Getenv("SWIFT_API_USER"), //username
+      ApiKey: os.Getenv("SWIFT_API_KEY"),  //password
+      AuthUrl: os.Getenv("SWIFT_AUTH_URL"),  //envar is responseible for "v1", "v2" or "v3"
+      Domain: os.Getenv("SWIFT_API_DOMAIN"), //domainName (optional. needed for v3)
+      DomainId: os.Getenv("SWIFT_API_DOMAIN_ID"), //domainId (optional. needed for v3)
+      Tenant: os.Getenv("SWIFT_TENANT"), //project in vcap_services on bluemix (optional. needed for v3)
+      TenantId: os.Getenv("SWIFT_TENANT_ID"), //projectId in vcap_services on bluemix (optional. needed for v3)
+    }
+
+  } else {
+    services, err := appEnv.Services.WithLabel("Object-Storage")
+
+    objstore := services[0] //assume it's the only one (bad)
+    if err != nil {
+      c = swift.Connection{}
+    }
+    
+    c = swift.Connection{
+      UserName: objstore.Credentials["userId"].(string),
+      ApiKey: objstore.Credentials["password"].(string),
+      AuthUrl: objstore.Credentials["auth_url"].(string) + "/v3",
+      Domain: objstore.Credentials["domainName"].(string), 
+      DomainId: objstore.Credentials["domainId"].(string), 
+      Tenant: objstore.Credentials["project"].(string), 
+      TenantId: objstore.Credentials["projectId"].(string), 
+    }  
+  }
+
+  return c
+}
+
+
+func GetACARawDataTempURL (w http.ResponseWriter, r *http.Request) {
+
+  swift_secret_key := os.Getenv("SWIFT_SECRET_KEY")
+
+  if swift_secret_key == "" {
+    ReturnError(w, 500, "temp_url_error", "secret key not found")
+    return
+  }
+
+  vars := mux.Vars(r)
+  container := vars["container"]
+  objectname := vars["date"] + "/" + vars["act"] + "/" + vars["object"]
+
+  c := getSetiPublicConnection()
+
+  err := c.Authenticate()
+  if err != nil {
+      ReturnError(w, 500, "temp_url_error", err.Error())
+      return
+  }
+
+
+  //default to 1 hour... But check for envar 
+  //that can control expiration time
+  //For example, coudl be set to "60s", or "24h".
+  //See https://golang.org/pkg/time/#ParseDuration
+  expiration := time.Now().Add(time.Second*3600)
+
+  if os.Getenv("EXPIRATION_TIME") != "" {
+    extim, err := time.ParseDuration(os.Getenv("EXPIRATION_TIME"))
+    if err == nil {
+      expiration = time.Now().Add(extim)
+    } else {
+      fmt.Println("Failed to parse expiration from EXPIRATION_TIME: " + err.Error())
+    }
+  } 
+
+  temp_url := c.ObjectTempUrl(container, objectname, swift_secret_key, "GET", expiration)
+
+  if temp_url == "" {
+    ReturnError(w, 500, "temp_url_error", "returned empty URL")
+    return
+  }
+
+  type ReturnData struct {
+    Url string `json:"temp_url"`
+  }
+
+  returnData := ReturnData{Url:temp_url}
+
+  w.WriteHeader(http.StatusOK)
+  if err := json.NewEncoder(w).Encode(returnData); err != nil {
+    panic(err)
+  }
+
+}
+
+
 
