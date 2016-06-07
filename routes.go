@@ -40,10 +40,16 @@ var routes = Routes{
     },
 //        "/v1/aca/url/{container}/{objectname:\"[a-zA-Z0-9=\\-\\/.]+}\"},  //this regex doesn't work!
     Route{
-        "ACAData",
+        "ACAURL",
         "GET",
         "/v1/aca/url/{container}/{date}/{act}/{object}",
         GetACARawDataTempURL,
+    },
+        Route{
+        "ACAData",
+        "GET",
+        "/v1/aca/data/{container}/{date}/{act}/{object}",
+        GetACARawData,
     },
 
     // ### Potential future API ### 
