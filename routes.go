@@ -23,13 +23,13 @@ var routes = Routes{
     Route{
         "ACASingleFileByCoordinates",
         "GET",
-        "/v1/aca/single", //v1/aca/single/{ra,dec} ??
+        "/v1/aca/meta/single", //v1/aca/meta/single/{ra,dec} ??
         AcaByCoordinates,
     },
     // Route{
     //     "AcaBlockByTGTID",
     //     "GET",
-    //     "/v1/aca/block/{tgtid}
+    //     "/v1/aca/meta/block/{tgtid}
     //     AcaBlockByTgtid,
     // },
     Route{
@@ -38,6 +38,22 @@ var routes = Routes{
         "/v1/coordinates/aca",
         KnownCandCoordinates,
     },
+//        "/v1/aca/url/{container}/{objectname:\"[a-zA-Z0-9=\\-\\/.]+}\"},  //this regex doesn't work!
+
+    Route{
+        "ACAData",
+        "GET",
+        "/v1/aca/url/{container}/{date}/{act}/{object}",
+        GetACARawDataTempURL,
+    },
+
+    Route{
+        "ACAData",
+        "GET",
+        "/v1/aca/data/{container}/{date}/{act}/{object}",
+        GetACARawData,
+    },
+
     // ### Potential future API ### 
     // Route{
     //     "CompampSingleFileByCoordinates",
