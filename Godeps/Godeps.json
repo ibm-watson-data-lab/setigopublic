@@ -53,6 +53,10 @@
 			"Rev": "d2dd0262208475919e1a362f675cfc0e7c10e905"
 		},
 		{
+			"ImportPath": "github.com/ncw/swift",
+			"Rev": "ce444d6d47c51d4dda9202cd38f5094dd8e27e86"
+		},
+		{
 			"ImportPath": "gopkg.in/guregu/null.v3",
 			"Comment": "v3.1",
 			"Rev": "41961cea0328defc5f95c1c473f89ebf0d1813f6"
