@@ -317,11 +317,11 @@ func getSetiPublicConnection() swift.Connection {
     c = swift.Connection{
       UserName: os.Getenv("SWIFT_API_USER"), //username
       ApiKey: os.Getenv("SWIFT_API_KEY"),  //password
-      AuthUrl: os.Getenv("SWIFT_AUTH_URL"),  //envar is responseible for "v1", "v2" or "v3"
-      Domain: os.Getenv("SWIFT_API_DOMAIN"), //domainName (optional. needed for v3)
-      DomainId: os.Getenv("SWIFT_API_DOMAIN_ID"), //domainId (optional. needed for v3)
-      Tenant: os.Getenv("SWIFT_TENANT"), //project in vcap_services on bluemix (optional. needed for v3)
-      TenantId: os.Getenv("SWIFT_TENANT_ID"), //projectId in vcap_services on bluemix (optional. needed for v3)
+      AuthUrl: os.Getenv("SWIFT_AUTH_URL"), //reponsibility of envar to contain the full URL, including v1.0, v2, or v3
+      Domain: os.Getenv("SWIFT_API_DOMAIN"), //domainName (optional, for v3 only)
+      DomainId: os.Getenv("SWIFT_API_DOMAIN_ID"), //domainId (optional, for v3 only)
+      Tenant: os.Getenv("SWIFT_TENANT"), //project in vcap_services on bluemix (optional, for v3 only)
+      TenantId: os.Getenv("SWIFT_TENANT_ID"), //projectId in vcap_services on bluemix (optional, for v3 only)
     }
 
   } else {
@@ -335,7 +335,7 @@ func getSetiPublicConnection() swift.Connection {
     c = swift.Connection{
       UserName: objstore.Credentials["userId"].(string),
       ApiKey: objstore.Credentials["password"].(string),
-      AuthUrl: objstore.Credentials["auth_url"].(string) + "/v3",
+      AuthUrl: objstore.Credentials["auth_url"].(string) + "/v3",  //have to add this manually here. no other way.
       Domain: objstore.Credentials["domainName"].(string), 
       DomainId: objstore.Credentials["domainId"].(string), 
       Tenant: objstore.Credentials["project"].(string), 
@@ -346,7 +346,6 @@ func getSetiPublicConnection() swift.Connection {
   return c
 }
 
-
 func GetACARawDataTempURL (w http.ResponseWriter, r *http.Request) {
 
   swift_secret_key := os.Getenv("SWIFT_SECRET_KEY")
@@ -355,6 +354,7 @@ func GetACARawDataTempURL (w http.ResponseWriter, r *http.Request) {
     ReturnError(w, 500, "temp_url_error", "secret key not found")
     return
   }
+
 
   vars := mux.Vars(r)
   container := vars["container"]
@@ -404,5 +404,22 @@ func GetACARawDataTempURL (w http.ResponseWriter, r *http.Request) {
 
 }
 
+func GetACARawData (w http.ResponseWriter, r *http.Request) {
+
+  vars := mux.Vars(r)
+  container := vars["container"]
+  objectname := vars["date"] + "/" + vars["act"] + "/" + vars["object"]
+
+  c := getSetiPublicConnection()
+
+  err := c.Authenticate()
+  if err != nil {
+      ReturnError(w, 500, "get_data_error", err.Error())
+      return
+  }
+
+  c.ObjectGet(container, objectname, w, false, nil)
+  
+}
 
 
