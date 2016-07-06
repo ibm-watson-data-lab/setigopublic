@@ -305,16 +305,10 @@ func KnownCandCoordinates(w http.ResponseWriter, r *http.Request) {
   }
 }
 
-    
-func getSetiPublicConnection() swift.Connection {
-  var c swift.Connection
-
-  appEnv, err := cfenv.Current()
-  if err != nil {
-    //we are not in a CF environment. Attempt to get credentials from local envars
-    //we use the same envar names that are used in the swift library tests
-    
-    c = swift.Connection{
+  
+func getSetiPublicConnectionWithLocalEnvars() swift.Connection {
+  
+  c := swift.Connection{
       UserName: os.Getenv("SWIFT_API_USER"), //username
       ApiKey: os.Getenv("SWIFT_API_KEY"),  //password
       AuthUrl: os.Getenv("SWIFT_AUTH_URL"), //reponsibility of envar to contain the full URL, including v1.0, v2, or v3
@@ -323,24 +317,40 @@ func getSetiPublicConnection() swift.Connection {
       Tenant: os.Getenv("SWIFT_TENANT"), //project in vcap_services on bluemix (optional, for v3 only)
       TenantId: os.Getenv("SWIFT_TENANT_ID"), //projectId in vcap_services on bluemix (optional, for v3 only)
     }
+  return c
+}
+
+func getSetiPublicConnection() swift.Connection {
+  var c swift.Connection
+
+  appEnv, err := cfenv.Current()
+  if err != nil {
+    //we are not in a CF environment. Attempt to get credentials from local envars
+    //we use the same envar names that are used in the swift library tests
+    
+    c = getSetiPublicConnectionWithLocalEnvars()
 
   } else {
     services, err := appEnv.Services.WithLabel("Object-Storage")
 
-    objstore := services[0] //assume it's the only one (bad)
     if err != nil {
-      c = swift.Connection{}
+      //even though we're in a CF environgment, we didn't find an object store
+      //bound to the app. So, we instantiate a swift.Connection object
+      //with envars that should be set. 
+      c = getSetiPublicConnectionWithLocalEnvars()
+
+    } else {
+      objstore := services[0] //assume it's the only one (bad)
+      c = swift.Connection{
+        UserName: objstore.Credentials["userId"].(string),
+        ApiKey: objstore.Credentials["password"].(string),
+        AuthUrl: objstore.Credentials["auth_url"].(string) + "/v3",  //have to add this manually here. no other way.
+        Domain: objstore.Credentials["domainName"].(string), 
+        DomainId: objstore.Credentials["domainId"].(string), 
+        Tenant: objstore.Credentials["project"].(string), 
+        TenantId: objstore.Credentials["projectId"].(string), 
+      }  
     }
-    
-    c = swift.Connection{
-      UserName: objstore.Credentials["userId"].(string),
-      ApiKey: objstore.Credentials["password"].(string),
-      AuthUrl: objstore.Credentials["auth_url"].(string) + "/v3",  //have to add this manually here. no other way.
-      Domain: objstore.Credentials["domainName"].(string), 
-      DomainId: objstore.Credentials["domainId"].(string), 
-      Tenant: objstore.Credentials["project"].(string), 
-      TenantId: objstore.Credentials["projectId"].(string), 
-    }  
   }
 
   return c
