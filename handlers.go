@@ -15,6 +15,7 @@ import (
   "github.com/ncw/swift"
   "github.com/gorilla/mux"
   "time"
+  "log"
 )
 
 var (
@@ -96,30 +97,21 @@ func AcaByCoordinates(w http.ResponseWriter, r *http.Request) {
 	var coordinates CelestialCoordinates
 	var err error = nil
 
-  //todo. Change RA=X,DEC=Y to "coordinates=X,Y"
-  //OR API to  /v1/candidate/single_aca/{coordinates}
-  //vars := mux.Vars(r)
-  //coords := vars["coordinates"]  
-  //split coords on ',' and parse RA/DEC to float
+  vars := mux.Vars(r)
 
-  //can I "lower" all of the URL query keys?
-	coordinates.RA, err = strconv.ParseFloat(r.URL.Query().Get("RA"), 64)
+  coordinates.RA, err = strconv.ParseFloat(vars["ra"], 64)
 	if err != nil {
-    coordinates.RA, err = strconv.ParseFloat(r.URL.Query().Get("ra"), 64)
-    if err != nil {
-  		ReturnError(w, 400, "missing_data", "No RA value.")
-	 	 return
-	  }
+    ReturnError(w, 400, "parse_error", "Unable to parse RA value.")
+    return
   }
 
-	coordinates.Dec, err = strconv.ParseFloat(r.URL.Query().Get("DEC"), 64)
+  coordinates.Dec, err = strconv.ParseFloat(vars["dec"], 64)
   if err != nil {
-    coordinates.Dec, err = strconv.ParseFloat(r.URL.Query().Get("dec"), 64)
-  	if err != nil {
-  		ReturnError(w, 400, "missing_data", "No DEC value.")
-  		return
-  	}
+    ReturnError(w, 400, "parse_error", "Unable to parse DEC value.")
+    return
   }
+
+  log.Printf("coordinates: %v", coordinates)
 
 	//use this to allow for a query to skip a number of initial rows
 	//we limit the output of this query to a maximum of 200 rows per query
@@ -368,7 +360,7 @@ func GetACARawDataTempURL (w http.ResponseWriter, r *http.Request) {
 
   vars := mux.Vars(r)
   container := vars["container"]
-  objectname := vars["date"] + "/" + vars["act"] + "/" + vars["object"]
+  objectname := vars["date"] + "/" + vars["act"] + "/" + vars["acafile"]
 
   c := getSetiPublicConnection()
 
@@ -418,7 +410,7 @@ func GetACARawData (w http.ResponseWriter, r *http.Request) {
 
   vars := mux.Vars(r)
   container := vars["container"]
-  objectname := vars["date"] + "/" + vars["act"] + "/" + vars["object"]
+  objectname := vars["date"] + "/" + vars["act"] + "/" + vars["acafile"]
 
   c := getSetiPublicConnection()
 

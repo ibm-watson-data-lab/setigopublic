@@ -23,7 +23,7 @@ var routes = Routes{
     Route{
         "ACASingleFileByCoordinates",
         "GET",
-        "/v1/aca/meta/single", //v1/aca/meta/single/{ra,dec} ??
+        "/v1/aca/meta/{ra}/{dec}", 
         AcaByCoordinates,
     },
     // Route{
@@ -42,13 +42,13 @@ var routes = Routes{
     Route{
         "ACAURL",
         "GET",
-        "/v1/aca/url/{container}/{date}/{act}/{object}",
+        "/v1/aca/url/{container}/{date}/{act}/{acafile}",
         GetACARawDataTempURL,
     },
         Route{
         "ACAData",
         "GET",
-        "/v1/aca/data/{container}/{date}/{act}/{object}",
+        "/v1/aca/data/{container}/{date}/{act}/{acafile}",
         GetACARawData,
     },
 
