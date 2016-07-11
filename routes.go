@@ -42,14 +42,20 @@ var routes = Routes{
     Route{
         "ACAURL",
         "GET",
-        "/v1/aca/url/{container}/{date}/{act}/{acafile}",
+        "/v1/data/url/{container}/{date}/{act}/{acafile}",
         GetACARawDataTempURL,
     },
-        Route{
+    Route{
         "ACAData",
         "GET",
-        "/v1/aca/data/{container}/{date}/{act}/{acafile}",
+        "/v1/data/raw/{container}/{date}/{act}/{acafile}",
         GetACARawData,
+    },
+    Route{
+        "DataToken",
+        "GET",
+        "/v1/token/{username}/{email}",
+        GetACARawDataToken,
     },
 
     // ### Potential future API ### 
