@@ -181,13 +181,51 @@ r = requests.get('https://setigopublic.mybluemix.net/v1/aca/meta/{}/{}'.format(r
 print json.dumps(r.json(), indent=1)
 ```
 
-Due to the maximum limit of 200 rows returned per query, the code above will only return the 
-first 200 rows of the total 392 rows. To get the rest, you'll need to use the `?skip=200` optional
+Here's what the output will look like:
+
+```
+{
+ "returned_num_rows": 200, 
+ "skipped_num_rows": 0, 
+ "rows": [
+  {
+   "inttimes": 94, 
+   "pperiods": 27.36000061, 
+   "pol": "mixed", 
+   "tgtid": 150096, 
+   "sigreason": "PsPwrT", 
+   "freqmhz": 6113.461883333, 
+   "dec2000deg": 46.997, 
+   "container": "setiCompAmp", 
+   "objectname": "2014-05-20/act14944/2014-05-20_13-00-01_UTC.act14944.dx2016.id-0.L.archive-compamp", 
+   "ra2000hr": 19.832, 
+   "npul": 3, 
+   "acttype": null, 
+   "power": 50.652, 
+   "widhz": 2.778, 
+   "catalog": "keplerHZ", 
+   "snr": 32.397, 
+   "uniqueid": "kepler8ghz_14944_2016_0_2208930", 
+   "beamno": 2, 
+   "sigclass": "Cand", 
+   "sigtyp": "Pul", 
+   "tscpeldeg": 78.558, 
+   "drifthzs": -1.055, 
+   "candreason": "Confrm", 
+   "time": "2014-05-20T12:59:55Z", 
+   "tscpazdeg": 307.339
+  }, 
+  ...
+  "total_num_rows": 392
+}
+```
+
+The maximum return limit is 200 rows per query. The `total_num_rows` tells you there are 392 rows. To get the rest, you'll need to use the `?skip=200` optional
 URL parameter. For example
 
 ```python 
 r = requests.get('https://setigopublic.mybluemix.net/v1/aca/meta/{}/{}?skip=200'.format(ra, dec)
-print json.dumps(r.json(), indent=1)
+newrows = r.json()['rows']
 ```
 
 Searching through these results, one thing that you'll notice is that while there are 392
