@@ -167,7 +167,7 @@ Given a particular celestial coordinate, we can obtain all of the 'Candidate' si
 path to the raw data.
 
 The endpoint to use is 
-[https://setigopublic.mybluemix.net/v1/aca/meta/{ra}/{dec}](#meta-data-and-location-of-candidate-events).
+[/v1/aca/meta/{ra}/{dec}](#meta-data-and-location-of-candidate-events).
 
 Continuing from the example above
 
