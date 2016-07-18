@@ -28,6 +28,17 @@ This REST API allows you to search for `Candidate`/`archive-compamp` files based
 in the sky, the RA/DEC values. Further enhancements to this API will allow for finding data based
 on other attributes.
 
+
+## API Reference
+
+### Endpoints:
+
+  * [**/v1/coordinates/aca**](#celestial-coordinates-of-candidate-events)
+  * [**/v1/aca/meta/{ra}/{dec}**](#meta-data-and-location-of-candidate-events)
+  * [**/v1/token/{username}/{email address}**](#token-for-raw-data-access)
+  * [**/v1/data/url/{container}/{objectname}**](#temporary-url-for-raw-data)
+
+
 ## Full Example Usage with Python
 
 ### Introduction
@@ -290,16 +301,9 @@ moved_data = map(move_data, temp_urls)
 ```
 
 
+
 ## API Reference
 
-### Endpoints:
-
-  * [**/v1/coordinates/aca**](#celestial-coordinates-of-candidate-events)
-  * [**/v1/aca/meta/{ra}/{dec}**](#meta-data-and-location-of-candidate-events)
-  * [**/v1/token/{username}/{email address}**](#token-for-raw-data-access)
-  * [**/v1/data/url/{container}/{objectname}**](#temporary-url-for-raw-data)
-
-____
 
 ### Celestial Coordinates of Candidate Events
 ##### GET /v1/coordinates/aca
