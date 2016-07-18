@@ -161,10 +161,10 @@ returns
 
 You may wish to extend your box further so see what we find. 
 
-### Get Raw Data Paths
+### Get Raw Data URLs
 
-Given a particular celestial coordinate, we can obtain all of the 'Candidate' signal meta data and
-path to the raw data.
+Given a particular celestial coordinate, we can obtain all of the 'Candidate' signal meta data and, importantly,
+a URL to the raw data.
 
 The endpoint to use is 
 [/v1/aca/meta/{ra}/{dec}](#meta-data-and-location-of-candidate-events).
@@ -298,7 +298,6 @@ moved_data = map(move_data, temp_urls)
   * [**/v1/aca/meta/{ra}/{dec}**](#meta-data-and-location-of-candidate-events)
   * [**/v1/token/{username}/{email address}**](#token-for-raw-data-access)
   * [**/v1/data/url/{container}/{objectname}**](#temporary-url-for-raw-data)
-  * [**/v1/data/raw/{container}/{objectname}**](#raw-data-to-be-deprecated)
 
 ____
 
@@ -495,31 +494,3 @@ adamcox@us.ibm.com*
     file size:  1061928
     ```
 
-### Raw Data (to be deprecated)
-##### GET /v1/data/raw/{container}/{objectname}
-
-**Description**: Given a container and object name, returns the data file directly.
-The container and object name are obtained from the results of 
-[`/v1/aca/meta/{ra}/{dec}'](#meta-data-and-location-of-candidate-events)
-
-
-  * **Examples**:
-
-  ```python
-    import requests
-
-    cont = 'setiCompAmp'
-    objname = '2014-05-20/act14944/2014-05-20_13-00-01_UTC.act14944.dx2016.id-0.L.archive-compamp'
-
-    data_url = 'https://setigopublic.mybluemix.net/v1/data/raw/{}/{}'.format(cont, objname)  
-    r_data = requests.get(data_url)
-
-    rawdata = r_data.content
-    print 'file size: ', len(rawdata)
-    ```
-
-    Prints 
-
-    ```
-    file size:  1061928
-    ```

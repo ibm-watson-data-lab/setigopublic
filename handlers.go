@@ -406,24 +406,6 @@ func GetACARawDataTempURL (w http.ResponseWriter, r *http.Request) {
 
 }
 
-func GetACARawData (w http.ResponseWriter, r *http.Request) {
-
-  vars := mux.Vars(r)
-  container := vars["container"]
-  objectname := vars["date"] + "/" + vars["act"] + "/" + vars["acafile"]
-
-  c := getSetiPublicConnection()
-
-  err := c.Authenticate()
-  if err != nil {
-      ReturnError(w, 500, "get_data_error", err.Error())
-      return
-  }
-
-  c.ObjectGet(container, objectname, w, false, nil)
-  
-}
-
 func GetACARawDataToken (w http.ResponseWriter, r *http.Request) {
   vars := mux.Vars(r)
   //caller_name := vars["username"]
