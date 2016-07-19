@@ -406,6 +406,65 @@ func GetACARawDataTempURL (w http.ResponseWriter, r *http.Request) {
 
 }
 
+func GetACARawDataTempURLsByList (w http.ResponseWriter, r *http.Request) {
+
+  body, err := ioutil.ReadAll(io.LimitReader(r.Body, 30000))
+  if err != nil {
+      panic(err)
+  }
+  if err := r.Body.Close(); err != nil {
+      panic(err)
+  }
+
+  type Object struct {
+    Container  string `json:"container"`
+    Name string `json:"objectname"`
+  }
+
+  var objects []Object
+
+  if err := json.Unmarshal(body, &objects); err != nil {
+      w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+      w.WriteHeader(422) // unprocessable entity
+      if err := json.NewEncoder(w).Encode(err); err != nil {
+          panic(err)
+      }
+  }
+
+  swift_secret_key := os.Getenv("SWIFT_SECRET_KEY")
+
+  if swift_secret_key == "" {
+    ReturnError(w, 500, "temp_url_error", "secret key not found")
+    return
+  }
+
+  c := getSetiPublicConnection()
+
+  err := c.Authenticate()
+  if err != nil {
+      ReturnError(w, 500, "temp_url_error", err.Error())
+      return
+  }
+
+  //default to 1 hour... But check for envar 
+  //that can control expiration time
+  //For example, coudl be set to "60s", or "24h".
+  //See https://golang.org/pkg/time/#ParseDuration
+  expiration := time.Now().Add(time.Second*3600)
+
+  if os.Getenv("EXPIRATION_TIME") != "" {
+    extim, err := time.ParseDuration(os.Getenv("EXPIRATION_TIME"))
+    if err == nil {
+      expiration = time.Now().Add(extim)
+    } else {
+      fmt.Println("Failed to parse expiration from EXPIRATION_TIME: " + err.Error())
+    }
+  } 
+
+  //loop through the objects and get temp urls for each cont/objname pair
+
+}
+
 func GetACARawDataToken (w http.ResponseWriter, r *http.Request) {
   vars := mux.Vars(r)
   //caller_name := vars["username"]

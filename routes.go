@@ -46,6 +46,12 @@ var routes = Routes{
         GetACARawDataTempURL,
     },
     Route{
+        "ACAURL",
+        "POST",
+        "/v1/data/url",
+        GetACARawDataTempURLsByList,
+    },
+    Route{
         "DataToken",
         "GET",
         "/v1/token/{username}/{email}",
