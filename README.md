@@ -1,32 +1,30 @@
 # SETI Public Data Server
 
-Go-based server for Public SETI data sets, part of the IBM+SETI partnership. 
+A Go-based server for Public SETI data sets, part of the [IBM+SETI partnership](http://ibmjstart.github.io/SETI/). 
 
-The Allen Telescope Array (ATA), the source of data for this project,
-records radio signals from particular celestial coordinates 
-through beamforming.
-Beamforming combines signals from multiple telescopes in order to observe radio signals from just a 
-very small region of the sky, usually occupied by a single star with a known exoplanet.
+The SETI Institute utilizes the Allen Telescope Array (ATA) to search for radio signals from intelligent life
+beyond our Solar System. Nearly each night, the ATA observes radio frequencies in the ~1-10 GHz 
+frequency range from particular localtions in the sky. 
 
-Observation of a potential signal in a beam results in two data files: a raw data file, called a `compamp`
-or `archive-compamp` and preliminary measurement and categorization of the signal, which is stored in a row
-of the SignalDB. The SignalDB is a single table, managed with 
-[dashDB](http://www.ibm.com/analytics/us/en/technology/cloud-data-services/dashdb), that contains the 
-preliminary analysis of the raw data. A SignalDB row contains signal categorization, the Right Ascension (RA)
+Observation of a potential signal results in two pieces of data: a raw data file, called a `compamp`
+or `archive-compamp`, and preliminary measurement and categorization of the signal, which is stored as a row
+in the `SignalDB` table. A SignalDB row contains signal categorization, the Right Ascension (RA)
 and Declination (DEC) coordinates of the position in the sky, estimates of the power of the signal, 
 primary carrier frequency, etc. All RA/DEC coordinates are references from the J2000 equinox. A full
-description of the values in SignalDB are found [here]().
+description of the values in SignalDB are found [here](). Currently, the SignalDB is available on
+[dashDB](http://www.ibm.com/analytics/us/en/technology/cloud-data-services/dashdb) and the raw
+`compamp` and `archive-compamp` files are stored in [IBM Object Store](https://console.ng.bluemix.net/catalog/object-storage/).
 
 The raw data for a signal that is categorized as a `Candidate` is stored as an `archive-compamp` file, 
 while other types signals are stored as `compamp` files. The only difference between these file types
-is that the `archive-compamp` contains all the data across the entire bandwith observed by the ATA, while
-the `compamp` files contains just the data for the subband where the signal was observed. The full bandwidth
-is divided into 16 subbands.  An `archive-compamp` file is typically ~1 MB in size. As such, a typical
-`compamp` file is ~1/16 MB. 
+is that the `archive-compamp` contains signal across the entire bandwith observed by the ATA, while
+the `compamp` files contains just the data for the subband where `non-Candidate` signals was observed. 
 
 This REST API allows you to search for `Candidate`/`archive-compamp` files based upon their position
-in the sky, the RA/DEC values. Further enhancements to this API will allow for finding data based
-on other attributes.
+in the sky, the RA/DEC values. It will return to you the SignalDB row for each raw `archive-compamp`
+file, along with a temporary URL to download the `archive-compamp` file
+
+Further enhancements to this API will allow for finding data based on other attributes.
 
 
 ## API Reference
@@ -47,6 +45,7 @@ The following example, done in Python, shows a typical way to use this REST API.
 
 The general flow is
 
+  * Find an interesting target in the sky and note the coordinates.
   * Determine if data is available for a particular point or region in the sky.
   * Get the SignalDB rows and raw data file information for that region. 
   * Get a temporary URL for the raw data file.
@@ -58,7 +57,7 @@ interesting region in the sky.
 Once the authorization token system is implemented, you will be required to have an [IBM Bluemix](https://bluemix.net)
 account and will be limited to 10k temporary URL requests per month. 
 
-You may read below or [click here to see a full example in a shared IBM Spark notebook](https://console.ng.bluemix.net/data/notebooks/e17dc8c6-9c33-4947-be31-ee6b4b7e0888/view?access_token=6e95d320610f67467ba63bc89d9cec48faf847f2532fdd7523b0dd2ccb9ea346).
+You may read below or [click here to see a full example in a shared IBM Spark notebook](https://console.ng.bluemix.net/data/notebooks/b05446cc-8303-4b1d-8150-2d55e49691ef/view?access_token=e70e82feeae786d3e57f2f918b4d22439723dd619e3059143942f0bdb4b9504c).
 
 ### Select an Interesting Target
 
@@ -170,12 +169,11 @@ returns
 }
 ```
 
-You may wish to extend your box further so see what we find. 
+You may wish to extend your box further so see what you find. 
 
 ### Get Raw Data URLs
 
-Given a particular celestial coordinate, we can obtain all of the 'Candidate' signal meta data and, importantly,
-a URL to the raw data.
+Given a particular celestial coordinate, we can obtain all of the 'Candidate' signal meta data.
 
 The endpoint to use is 
 [/v1/aca/meta/{ra}/{dec}](#meta-data-and-location-of-candidate-events).
@@ -239,39 +237,43 @@ r = requests.get('https://setigopublic.mybluemix.net/v1/aca/meta/{}/{}?skip=200'
 newrows = r.json()['rows']
 ```
 
-Searching through these results, one thing that you'll notice is that while there are 392
-'Candidate' signals found in the raw data, it doesn't mean there are 392 raw data files. There
-will be duplicates. So you'll need to sort through them appropriately. If you do not and you use
+Searching through these results, one thing you'll notice is that while there are 392
+'Candidate' signals found in the SignalDB meta data, it doesn't mean there are 392 raw data files. *There
+will be duplicates.* So you'll need to sort through them appropriately. If you do not and you use
 the same raw data multiple times within a machine-learning algorithm (to extract a set of features, 
 for example), you'll likely corrupt your results. 
+
+An easy way to reorder your results by the raw data file is with a `groupby`. For example
+
+```python
+rows # list of signalDB rows returned from above
+rows = sorted(rows, key=lambda row:row['container'] + '-' + row['objectname'])
+
+grl = []  #a list of (key, [rows])
+for k, g in itertools.groupby(rows, lambda row:row['container'] + '-' + row['objectname']):
+  grl.append((k, list(g))
+
+# OR in Spark
+
+rdd = sc.parallelize(rows)
+rdd = rdd.groupBy(lambda row: row['container'] + '-' + row['objectname']) 
+```
 
 You'll also notice there multiple files that have the same SignalDB meta-data, but with slightly
 different file names. The antenna data are decomposed into left- and right-circularly polarized
 complex data signals, which are stored in separate files; hence, the `L` and `R` components of the names.
 
-The location of the raw data is stored in an 
-[IBM/Softlayer Object Store](https://developer.ibm.com/bluemix/2015/10/20/getting-started-with-bluemix-object-storage/).  
+The location of the raw data is stored in an
+[IBM/Softlayer Object Store](https://developer.ibm.com/bluemix/2015/10/20/getting-started-with-bluemix-object-storage/).
 In order to access those  data files, one must first request a temporary URL.
 
 ### Temporary URLs and Data Storage
 
-The temporary URLs are obtained with the [`/v1/data/url/{containter}/{objectname}`](#temporary-url-for-raw-data) 
-endpoint. These temporary URLs, by default, are valid for only one hour. You must consider this when obtaining
-the URLs and retrieving the data. 
+The temporary URLs are obtained with the
+[`/v1/data/url/{containter}/{objectname}`](#temporary-url-for-raw-data) 
+endpoint. *These temporary URLs, by default, are valid for only one hour.* You must consider this
+when obtaining the URLs and retrieving the data. 
 
-In each `row` returned above, along with the SignalDB data, there is the `container` and `objectname` of the
-raw data file. 
-
-While not necessary for demonstration of this API, the intelligent thing to do is to `map` the rows into
-a list of tuples that just contain the `container` and `objectname` and then drop duplicates. This will reduce the number
-of temporary URLs you need and the amount of storage space you'll need to store elsewhere. 
-
-```python
-rows = r.json(['rows'])
-data_paths = set( map(lambda x: (x['container'], x['objectname']), rows) )
-```
-
-Next, we use the API to get the temporary URLs
 
 ```python
 def get_temp_url(row):
@@ -281,25 +283,10 @@ def get_temp_url(row):
 temp_urls = map(get_temp_url, data_paths)
 ```
 
-For each temporary URL, we download the file and should then put it somewhere. That is not specified 
-in this example. However, you can [look here for a full example](https://console.ng.bluemix.net/data/notebooks/e17dc8c6-9c33-4947-be31-ee6b4b7e0888/view?access_token=6e95d320610f67467ba63bc89d9cec48faf847f2532fdd7523b0dd2ccb9ea346)
-of doing essentially what you see here with an IBM Spark Service and then placing the data in 
-an [IBM Object Store](https://developer.ibm.com/bluemix/2015/10/20/getting-started-with-bluemix-object-storage/).
-
-```python
-def move_data(row):
-  if row[0] == 200:  #we have a valid temporary URL
-    r = requests.get(row[1])
-  if r.status_code == 200
-    data = r.content
-    ### DO something with the data here!
-    ### It's most efficient for you and for your analysis to store it somewhere relatively local
-
-  return (r.status_code,) + row[1:]
-
-moved_data = map(move_data, temp_urls)
-```
-
+For each temporary URL, we can now download the file and store it, or analyze it. 
+[Here is a complete example](https://console.ng.bluemix.net/data/notebooks/6818fe79-84f5-4c22-a800-b80aa7696ef4/view?access_token=c1a0bf78689d45d01425a5b8a59c886da55a16eb17c4708791c14551c3c17b21)
+using the IBM Spark Service to download and place data in
+[IBM Object Storage](https://developer.ibm.com/bluemix/2015/10/20/getting-started-with-bluemix-object-storage/).
 
 
 ## API Reference
