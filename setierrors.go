@@ -6,7 +6,7 @@ import (
 )
 
 type SetiGoPublicError struct {
-	Reason      string `'json:"reason"`
+	Reason      string `json:"reason"`
 	ErrorString string `json:"error"`
 }
 
