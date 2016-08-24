@@ -263,7 +263,7 @@ func KnownCandCoordinates(w http.ResponseWriter, r *http.Request) {
   var totalNumRows int64
 
   row := db.QueryRow(`SELECT count(*) FROM SETIUSERS.ACA_CANDIDATE_COORDINATES 
-    WHERE RA2000HR > ? AND RA2000HR < ? AND DEC2000DEG > ? AND DEC2000DEG < ?`,ramin, ramax, decmin, decmax)
+    WHERE RA2000HR >= ? AND RA2000HR < ? AND DEC2000DEG >= ? AND DEC2000DEG < ?`,ramin, ramax, decmin, decmax)
 
   err = row.Scan(&totalNumRows)
   if err != nil {
@@ -273,7 +273,7 @@ func KnownCandCoordinates(w http.ResponseWriter, r *http.Request) {
 
   knownACACoordinates := []KnownACACoordinate{}
   err = db.Select(&knownACACoordinates, `SELECT * FROM SETIUSERS.ACA_CANDIDATE_COORDINATES 
-    WHERE RA2000HR > ? AND RA2000HR < ? AND DEC2000DEG > ? AND DEC2000DEG < ? 
+    WHERE RA2000HR >= ? AND RA2000HR < ? AND DEC2000DEG >= ? AND DEC2000DEG < ? 
     ORDER BY RA2000HR, DEC2000DEG LIMIT ? OFFSET ?`,ramin, ramax, decmin, decmax, limit,skiprows)
   
   if err != nil {
