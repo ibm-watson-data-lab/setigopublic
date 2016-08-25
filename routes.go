@@ -26,6 +26,12 @@ var routes = Routes{
         "/v1/aca/meta/{ra}/{dec}", 
         AcaByCoordinates,
     },
+    Route{
+        "ACAMetaForSpacecraft",
+        "GET",
+        "/v1/aca/meta/spacecraft", 
+        SpaceCraft,
+    },
     // Route{
     //     "AcaBlockByTGTID",
     //     "GET",

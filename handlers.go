@@ -191,6 +191,83 @@ func AcaByCoordinates(w http.ResponseWriter, r *http.Request) {
 }
 
 
+func SpaceCraft(w http.ResponseWriter, r *http.Request) {
+
+  var err error = nil
+
+
+  //use this to allow for a query to skip a number of initial rows
+  //we limit the output of this query to a maximum of 200 rows per query
+  skiprows, _ := strconv.ParseInt(r.URL.Query().Get("skip"), 10, 64)
+
+  //use this to allow for a query to limit the number of returned rows.
+  //however, the maximum allowed is 200 rows per query
+  var limit int64 = 200
+  if r.URL.Query().Get("limit") != "" {
+    limit, _ = strconv.ParseInt(r.URL.Query().Get("limit"), 10, 64)
+    if limit > 200 {
+      limit = 200
+    }  
+  }
+
+  dashDB, dashdbuser, dashdbpass = getDashDBCreds()
+
+  connStr := []string{"DATABASE=", dashDB.Credentials["db"].(string), ";", "HOSTNAME=", dashDB.Credentials["hostname"].(string), ";",
+    "PORT=", strconv.FormatFloat(dashDB.Credentials["port"].(float64), 'f', 0, 64), ";", "PROTOCOL=TCPIP", ";", "UID=", dashdbuser, ";", "PWD=", dashdbpass}
+  conn := strings.Join(connStr, "")
+
+  db, err := sqlx.Connect("db2-cli", conn)
+  if err != nil {
+    ReturnError(w, 500, "db2_error", "Unable to open connection.")
+    return
+  }
+  db.MapperFunc(strings.ToUpper)
+  defer db.Close()
+
+  
+  var totalNumRows int64
+
+  row := db.QueryRow(`SELECT count(*) FROM (SELECT UNIQUEID FROM SETIUSERS.SIGNALDB WHERE CATALOG='spacecraft') as SDB 
+    INNER JOIN  SETIUSERS.SDB_PATH_TO_ACA AS ACA 
+    ON SDB.UNIQUEID = ACA.UNIQUEID`)
+
+  err = row.Scan(&totalNumRows)
+  if err != nil {
+    ReturnError(w, 500, "query_count_error", err.Error())
+    return
+  }
+
+  signalDBJoinACAPaths := []SignalDBJoinACAPath{}
+
+  err = db.Select(&signalDBJoinACAPaths, `SELECT SDB.*, ACA.CONTAINER AS CONTAINER, ACA.OBJECTNAME AS OBJECTNAME
+    FROM (SELECT * FROM SETIUSERS.SIGNALDB WHERE CATALOG='spacecraft') as SDB 
+    INNER JOIN  SETIUSERS.SDB_PATH_TO_ACA AS ACA 
+    ON SDB.UNIQUEID = ACA.UNIQUEID 
+    ORDER BY SDB.UNIQUEID 
+    LIMIT ? OFFSET ?`,limit, skiprows )
+
+  if err != nil {
+    ReturnError(w, 500, "query_rows_error", err.Error())
+    return
+  }
+
+  type ReturnData struct {
+    TotalNumRows int64 `json:"total_num_rows"`
+    Skip int64 `json:"skipped_num_rows"`
+    Size int `json:"returned_num_rows"`
+    Data []SignalDBJoinACAPath `json:"rows"`
+  }
+
+  returnData := ReturnData{TotalNumRows: totalNumRows, Skip:skiprows, Size:len(signalDBJoinACAPaths), Data:signalDBJoinACAPaths}
+
+
+  w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+  w.WriteHeader(http.StatusOK)
+  if err := json.NewEncoder(w).Encode(returnData); err != nil {
+    panic(err)
+  }
+}
+
 func KnownCandCoordinates(w http.ResponseWriter, r *http.Request) {
   //query parameters
   //skip
