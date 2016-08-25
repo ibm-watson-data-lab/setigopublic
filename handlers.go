@@ -190,6 +190,7 @@ func AcaByCoordinates(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+
 func KnownCandCoordinates(w http.ResponseWriter, r *http.Request) {
   //query parameters
   //skip
@@ -217,32 +218,22 @@ func KnownCandCoordinates(w http.ResponseWriter, r *http.Request) {
 
   ramin := 0.0
   if r.URL.Query().Get("ramin") != "" {
-    ramin, _ = strconv.ParseFloat(r.URL.Query().Get("ramin"), 64)
-    if ramin < 0 {
-      ramin = 0.0
-    }  
+    ramin, _ = strconv.ParseFloat(r.URL.Query().Get("ramin"), 64) 
   }
   
   ramax := 24.0
   if r.URL.Query().Get("ramax") != "" {
     ramax, _ = strconv.ParseFloat(r.URL.Query().Get("ramax"), 64)
-    if ramax > 24 {
-      ramax = 24.0
-    }
   }
+
   decmin := -90.0
   if r.URL.Query().Get("decmin") != "" {
     decmin, _ = strconv.ParseFloat(r.URL.Query().Get("decmin"), 64)
-    if decmin < -90 {
-      decmin = -90.0
-    }
   }
+
   decmax := 90.0
   if r.URL.Query().Get("decmax") != "" {
-    decmax, _ = strconv.ParseFloat(r.URL.Query().Get("decmax"), 64)
-    if decmax > 90 {
-      decmax = 90.0
-    }  
+    decmax, _ = strconv.ParseFloat(r.URL.Query().Get("decmax"), 64)  
   }
   
   dashDB, dashdbuser, dashdbpass = getDashDBCreds()
@@ -296,6 +287,9 @@ func KnownCandCoordinates(w http.ResponseWriter, r *http.Request) {
     panic(err)
   }
 }
+
+
+
 
   
 func getSetiPublicConnectionWithLocalEnvars() swift.Connection {
