@@ -1,7 +1,7 @@
 applications:
 - path: .
-  memory: 512M
-  instances: 8
+  memory: 256M
+  instances: 12
   domain: mybluemix.net
   name: setigopublic
   host: setigopublic
