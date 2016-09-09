@@ -70,8 +70,6 @@ func Logger(inner http.Handler, name string) http.Handler {
 	    }
 	    defer resp.Body.Close()
 
-	    log.Printf("Logging request to Cloudant. %s", resp.Status)
-
 		}(r)
 
 	})
