@@ -46,11 +46,15 @@ func Logger(inner http.Handler, name string) http.Handler {
 		  }
 
 		  nn := time.Now()
+		  remote_address := r.Header.Get("X-Forwarded-For")
+		  if remote_address == "" {
+		  	remote_address = r.RemoteAddr	
+		  }
 
 		  returnData := LogData{ 
 		  	URL:*r.URL, 
 		  	Host:r.Host, 
-		  	RemoteAddr:r.RemoteAddr,
+		  	RemoteAddr:remote_address,
 		  	Type:"go-callback",
 		  	DocVersion:1,
 		  	Date:nn.String(),
