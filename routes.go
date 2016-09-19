@@ -1,80 +1,141 @@
 package main
 
 import (
-    "net/http"
+	"net/http"
 )
 
 type Route struct {
-    Name        string
-    Method      string
-    Pattern     string
-    HandlerFunc http.HandlerFunc
+	Name         string
+	Method       string
+	Pattern      string
+	HandlerFunc  http.HandlerFunc
+	AuthRequired bool
+	RateLimited  bool
 }
 type Routes []Route
 
-
 var routes = Routes{
-    Route{
-        "Index",
-        "GET",
-        "/",
-        Index,
-    },
-    Route{
-        "ACASingleFileByCoordinates",
-        "GET",
-        "/v1/aca/meta/{ra}/{dec}", 
-        AcaByCoordinates,
-    },
-    Route{
-        "ACAMetaForSpacecraft",
-        "GET",
-        "/v1/aca/meta/spacecraft", 
-        SpaceCraft,
-    },
-    // Route{
-    //     "AcaBlockByTGTID",
-    //     "GET",
-    //     "/v1/aca/meta/block/{tgtid}
-    //     AcaBlockByTgtid,
-    // },
-    Route{
-        "KnownCandCoordinates",
-        "GET",
-        "/v1/coordinates/aca",
-        KnownCandCoordinates,
-    },
-//        "/v1/aca/url/{container}/{objectname:\"[a-zA-Z0-9=\\-\\/.]+}\"},  //this regex doesn't work!
-    Route{
-        "ACAURL",
-        "GET",
-        "/v1/data/url/{container}/{date}/{act}/{acafile}",
-        GetACARawDataTempURL,
-    },
-    Route{
-        "DataToken",
-        "GET",
-        "/v1/token/{username}/{email}",
-        GetACARawDataToken,
-    },
+	Route{
+		"Index",
+		"GET",
+		"/",
+		Index,
+		false,
+		false,
+	},
+	Route{
+		"Login",
+		"GET",
+		"/login",
+		Login,
+		false,
+		false,
+	},
+	Route{
+		"Logout",
+		"GET",
+		"/logout",
+		Logout,
+		false,
+		false,
+	},
+	Route{
+		"BluemixAuthCallback",
+		"GET",
+		"/auth",
+		BluemixAuthCallback,
+		false,
+		false,
+	},
+	Route{
+		"Token",
+		"GET",
+		"/token",
+		Token,
+		true,
+		false,
+	},
+	Route{
+		"DataURL",
+		"GET",
+		"/data",
+		GetData,
+		false, //doesn't require Oauth2, but will require a valid token
+		true,
+	},
+	Route{
+		"ACASingleFileByCoordinates",
+		"GET",
+		"/v1/aca/meta/{ra}/{dec}",
+		AcaByCoordinates,
+		false,
+		true,
+	},
+	Route{
+		"ACAMetaForSpacecraft",
+		"GET",
+		"/v1/aca/meta/spacecraft",
+		SpaceCraft,
+		false,
+		true,
+	},
+	// Route{
+	//     "AcaBlockByTGTID",
+	//     "GET",
+	//     "/v1/aca/meta/block/{tgtid}
+	//     AcaBlockByTgtid,
+	//     false,
+	//     true,
+	// },
+	Route{
+		"KnownCandCoordinates",
+		"GET",
+		"/v1/coordinates/aca",
+		KnownCandCoordinates,
+		false,
+		true,
+	},
+	//        "/v1/aca/url/{container}/{objectname:\"[a-zA-Z0-9=\\-\\/.]+}\"},  //this regex doesn't work!
+	Route{
+		"ACAURL",
+		"GET",
+		"/v1/data/url/{container}/{date}/{act}/{acafile}",
+		GetACARawDataTempURL,
+		false,
+		true,
+	},
+	Route{
+		"DataToken",
+		"GET",
+		"/v1/token/{username}/{email}",
+		GetACARawDataToken,
+		false,
+		true,
+	},
 
-    // ### Potential future API ### 
-    // Route{
-    //     "CompampSingleFileByCoordinates",
-    //     "GET",
-    //     "/v1/compamp/rawfile", //v1/compamp/rawfile/{ra,dec} ??
-    //     CompampSingleFileByCoordinates,
-    // }
-    // Route{
-    //     "AllKnownCoordinates",
-    //     "GET",
-    //     "/v1/coordinates",  //with many options
-    //     AllKnownCoordinates,
-    // },
-    // Route
-    //     "AcaByCoordinates",
-    //     "GET",
-    //     "/v1/kepler_target",
-    //     AcaByCoordinates,
-    // },
-  }
+	// ### Potential future API ###
+	// Route{
+	//     "CompampSingleFileByCoordinates",
+	//     "GET",
+	//     "/v1/compamp/rawfile", //v1/compamp/rawfile/{ra,dec} ??
+	//     CompampSingleFileByCoordinates,
+	//     false,
+	//     true,
+	// }
+	// Route{
+	//     "AllKnownCoordinates",
+	//     "GET",
+	//     "/v1/coordinates",  //with many options
+	//     AllKnownCoordinates,
+	//     false,
+	//     true,
+	// },
+	// Route
+	//     "AcaByCoordinates",
+	//     "GET",
+	//     "/v1/kepler_target",
+	//     AcaByCoordinates,
+	//     false,
+	//     true,
+	// },
+}

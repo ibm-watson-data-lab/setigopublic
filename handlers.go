@@ -1,95 +1,217 @@
 package main
 
 import (
-	_ "bitbucket.org/phiggins/db2cli"
 	"encoding/json"
-	cfenv "github.com/cloudfoundry-community/go-cfenv"
+	"errors"
+	"fmt"
+	"io/ioutil"
+	"log"
 	"net/http"
-	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
 	"os"
 	"strconv"
 	"strings"
-  "fmt"
-  "errors"
-  "github.com/ncw/swift"
-  "github.com/gorilla/mux"
-  "time"
-  "log"
+	"time"
+
+	cfenv "github.com/cloudfoundry-community/go-cfenv"
+	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
+	"github.com/jmoiron/sqlx"
+	_ "github.com/lib/pq"
+	"github.com/ncw/swift"
+	"golang.org/x/oauth2"
 )
 
 var (
-  dashDB cfenv.Service 
-  dashdbuser string 
-  dashdbpass string
+	dashDB     cfenv.Service
+	dashdbuser string
+	dashdbpass string
 )
 
+var oauthConfig = &oauth2.Config{
+	ClientID:     os.Getenv("OAUTH_CLIENT_ID"),
+	ClientSecret: os.Getenv("OAUTH_CLIENT_SECRET"),
+	Scopes:       []string{"openid"},
+	Endpoint: oauth2.Endpoint{
+		AuthURL:  "https://login.ng.bluemix.net/UAALoginServerWAR/oauth/authorize",
+		TokenURL: "https://login.ng.bluemix.net/UAALoginServerWAR/oauth/token",
+	},
+	RedirectURL: "http://localhost:8080/auth",
+}
+var sessionStore = sessions.NewCookieStore([]byte("$ECRET$ETIcode"))
+
+// Logout
+// This clears the user from the session
+// It does not log the user out from Bluemix
+func Logout(w http.ResponseWriter, r *http.Request) {
+	session, err := sessionStore.Get(r, "user_session")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	session.Values["user"] = nil
+	session.Save(r, w)
+	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+}
+
+// Login
+// This redirects the user to the Bluemix Login page
+func Login(w http.ResponseWriter, r *http.Request) {
+	// redirect to Bluemix login page
+	redirect := r.URL.Query().Get("r")
+	url := oauthConfig.AuthCodeURL(redirect, oauth2.AccessTypeOnline)
+	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+}
+
+// Auth Handler
+// After logging into Bluemix a user is redirected to this Endpoint
+// with the authorization code assigned by Bluemix
+// After a successful login this function queries Bluemix for the users's info
+func BluemixAuthCallback(w http.ResponseWriter, r *http.Request) {
+	code := r.FormValue("code")
+	token, err := oauthConfig.Exchange(oauth2.NoContext, code)
+	if err != nil {
+		fmt.Printf("oauthConfig.Exchange() failed with '%s'\n", err)
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		return
+	}
+	// request userinfo from Bluemix
+	oauthClient := oauthConfig.Client(oauth2.NoContext, token)
+	response, err := oauthClient.Get("https://login.ng.bluemix.net/UAALoginServerWAR/userinfo")
+	body, _ := ioutil.ReadAll(response.Body)
+	// save user in session
+	session, err := sessionStore.Get(r, "user_session")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	user := User{}
+	json.Unmarshal(body, &user)
+	session.Values["user"] = user
+	session.Save(r, w)
+	log.Printf("USER = %s", user.Email)
+	// redirect to Index
+	redirect := r.FormValue("state")
+	if redirect == "" {
+		redirect = "/"
+	}
+	http.Redirect(w, r, redirect, http.StatusTemporaryRedirect)
+}
+
+func Token(w http.ResponseWriter, r *http.Request) {
+	session, err := sessionStore.Get(r, "user_session")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	val := session.Values["user"]
+	var user = &User{}
+	user, ok := val.(*User)
+	if !ok {
+		ReturnError(w, 500, "session_error", "you are not logged in")
+		return
+	}
+	var getTokenResponse, httpStatusCode, error, reason = GetToken(user)
+	if getTokenResponse == nil {
+		ReturnError(w, httpStatusCode, error, reason)
+	} else {
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(getTokenResponse); err != nil {
+			panic(err)
+		}
+	}
+}
+
+func GetData(w http.ResponseWriter, r *http.Request) {
+	type GetDataResponse struct {
+		Url string `json:"temp_url"`
+	}
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(&GetDataResponse{Url: "https://this.is.just.a.test"}); err != nil {
+		panic(err)
+	}
+}
+
 // this didn't seem to work the first time I tried it... ??
-// perhaps because CF Env wasn't set up? 
-//func init() {  
+// perhaps because CF Env wasn't set up?
+//func init() {
 //  dashDB, dashdbuser, dashdbpass = getDashDBCreds()
 //}
 
 func getDashDBCreds() (cfenv.Service, string, string) {
 
-  // Returns the dashdB Service, plus DASHDBUSER, DASHDBPASS
+	// Returns the dashdB Service, plus DASHDBUSER, DASHDBPASS
 
-  //get dashDB service details
-  var dashDB cfenv.Service
+	//get dashDB service details
+	var dashDB cfenv.Service
 
-  appEnv, err := cfenv.Current()
-  if err != nil {
-    //we are not in a CF environment. Attempt to get dashDB credentials from local envars
-    vcap := os.Getenv("VCAP_SERVICES")
+	appEnv, err := cfenv.Current()
+	if err != nil {
+		//we are not in a CF environment. Attempt to get dashDB credentials from local envars
+		vcap := os.Getenv("VCAP_SERVICES")
 
-    var vcapj cfenv.Services
+		var vcapj cfenv.Services
 
-    if vcap == "" {
-        panic(errors.New("No VCAP_SERVICES found."))
-    }
+		if vcap == "" {
+			panic(errors.New("No VCAP_SERVICES found."))
+		}
 
-    if err := json.Unmarshal([]byte(vcap), &vcapj); err != nil {
-      panic(err)
-    }
+		if err := json.Unmarshal([]byte(vcap), &vcapj); err != nil {
+			panic(err)
+		}
 
-    services, err := vcapj.WithLabel("dashDB")
+		services, err := vcapj.WithLabel("dashDB")
 
-    if err != nil {
-      panic(err)
-    }
+		if err != nil {
+			panic(err)
+		}
 
-    dashDB = services[0]
+		dashDB = services[0]
 
-  } else {
-    services, err := appEnv.Services.WithLabel("dashDB")
+	} else {
+		services, err := appEnv.Services.WithLabel("dashDB")
 
-    if err != nil {
-      panic(err)
-    }
+		if err != nil {
+			panic(err)
+		}
 
-    dashDB = services[0]
-  }
+		dashDB = services[0]
+	}
 
-  //I should probably use the setiusers values for username/password instead of the admin values
-  //This might be safer.
-  dashdbuser := os.Getenv("DASHDBUSER")
-  dashdbpass := os.Getenv("DASHDBPASS")
-  if dashdbuser == "" {
-    panic(errors.New("No DASHDBUSER found."))
-  }
+	//I should probably use the setiusers values for username/password instead of the admin values
+	//This might be safer.
+	dashdbuser := os.Getenv("DASHDBUSER")
+	dashdbpass := os.Getenv("DASHDBPASS")
+	if dashdbuser == "" {
+		panic(errors.New("No DASHDBUSER found."))
+	}
 
-  if dashdbpass == "" {
-    panic(errors.New("No DASHDBPASS found."))
-  }
+	if dashdbpass == "" {
+		panic(errors.New("No DASHDBPASS found."))
+	}
 
-  return dashDB, dashdbuser, dashdbpass
+	return dashDB, dashdbuser, dashdbpass
 }
 
 func Index(w http.ResponseWriter, r *http.Request) {
-  fmt.Fprintln(w, "<html><head><title>SETI on IBM-Spark</title></head><body>")
-  fmt.Fprintln(w, "<p><h3>Welcome to SETI Public on Spark.</h3></p>")
-  fmt.Fprintln(w, "<p>Brought to you by IBM, the SETI Institute in Mountain View, CA and NASA.</p>")
-  fmt.Fprintln(w, "</body></html>")
+	// load user from session
+	session, err := sessionStore.Get(r, "user_session")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	val := session.Values["user"]
+	var user = &User{}
+	user, ok := val.(*User)
+	// print out html
+	fmt.Fprintln(w, "<html><head><title>SETI on IBM-Spark</title></head><body>")
+	fmt.Fprintln(w, "<p><h3>Welcome to SETI Public on Spark.</h3></p>")
+	fmt.Fprintln(w, "<p>Brought to you by IBM, the SETI Institute in Mountain View, CA and NASA.</p>")
+	if !ok {
+		fmt.Fprintln(w, "<p><a href='/login'>Login with Bluemix</a></p>")
+	} else {
+		fmt.Fprintln(w, "<p>You are logged in as "+user.UserName+"</p>")
+	}
+	fmt.Fprintln(w, "</body></html>")
 }
 
 func AcaByCoordinates(w http.ResponseWriter, r *http.Request) {
@@ -97,35 +219,35 @@ func AcaByCoordinates(w http.ResponseWriter, r *http.Request) {
 	var coordinates CelestialCoordinates
 	var err error = nil
 
-  vars := mux.Vars(r)
+	vars := mux.Vars(r)
 
-  coordinates.RA, err = strconv.ParseFloat(vars["ra"], 64)
+	coordinates.RA, err = strconv.ParseFloat(vars["ra"], 64)
 	if err != nil {
-    ReturnError(w, 400, "parse_error", "Unable to parse RA value.")
-    return
-  }
+		ReturnError(w, 400, "parse_error", "Unable to parse RA value.")
+		return
+	}
 
-  coordinates.Dec, err = strconv.ParseFloat(vars["dec"], 64)
-  if err != nil {
-    ReturnError(w, 400, "parse_error", "Unable to parse DEC value.")
-    return
-  }
+	coordinates.Dec, err = strconv.ParseFloat(vars["dec"], 64)
+	if err != nil {
+		ReturnError(w, 400, "parse_error", "Unable to parse DEC value.")
+		return
+	}
 
-  log.Printf("coordinates: %v", coordinates)
+	log.Printf("coordinates: %v", coordinates)
 
 	//use this to allow for a query to skip a number of initial rows
 	//we limit the output of this query to a maximum of 200 rows per query
 	skiprows, _ := strconv.ParseInt(r.URL.Query().Get("skip"), 10, 64)
 
-  //use this to allow for a query to limit the number of returned rows.
-  //however, the maximum allowed is 200 rows per query
-  var limit int64 = 200
-  if r.URL.Query().Get("limit") != "" {
-    limit, _ = strconv.ParseInt(r.URL.Query().Get("limit"), 10, 64)
-    if limit > 200 {
-      limit = 200
-    }  
-  }
+	//use this to allow for a query to limit the number of returned rows.
+	//however, the maximum allowed is 200 rows per query
+	var limit int64 = 200
+	if r.URL.Query().Get("limit") != "" {
+		limit, _ = strconv.ParseInt(r.URL.Query().Get("limit"), 10, 64)
+		if limit > 200 {
+			limit = 200
+		}
+	}
 
 	dashDB, dashdbuser, dashdbpass = getDashDBCreds()
 
@@ -138,50 +260,48 @@ func AcaByCoordinates(w http.ResponseWriter, r *http.Request) {
 		ReturnError(w, 500, "db2_error", "Unable to open connection.")
 		return
 	}
-  db.MapperFunc(strings.ToUpper)
+	db.MapperFunc(strings.ToUpper)
 	defer db.Close()
 
-	
-  var totalNumRows int64
+	var totalNumRows int64
 
-  row := db.QueryRow(`SELECT count(*) FROM (SELECT UNIQUEID FROM SETIUSERS.SIGNALDB WHERE SIGCLASS='Cand'
+	row := db.QueryRow(`SELECT count(*) FROM (SELECT UNIQUEID FROM SETIUSERS.SIGNALDB WHERE SIGCLASS='Cand'
     AND RA2000HR = ? AND DEC2000DEG = ?) as SDB 
     INNER JOIN  SETIUSERS.SDB_PATH_TO_ACA AS ACA 
     ON SDB.UNIQUEID = ACA.UNIQUEID`, coordinates.RA, coordinates.Dec)
 
-  err = row.Scan(&totalNumRows)
-  if err != nil {
-    ReturnError(w, 500, "query_count_error", err.Error())
-    return
-  }
+	err = row.Scan(&totalNumRows)
+	if err != nil {
+		ReturnError(w, 500, "query_count_error", err.Error())
+		return
+	}
 
-  signalDBJoinACAPaths := []SignalDBJoinACAPath{}
+	signalDBJoinACAPaths := []SignalDBJoinACAPath{}
 
-  err = db.Select(&signalDBJoinACAPaths, `SELECT SDB.*, ACA.CONTAINER AS CONTAINER, ACA.OBJECTNAME AS OBJECTNAME
+	err = db.Select(&signalDBJoinACAPaths, `SELECT SDB.*, ACA.CONTAINER AS CONTAINER, ACA.OBJECTNAME AS OBJECTNAME
     FROM (SELECT * FROM SETIUSERS.SIGNALDB WHERE SIGCLASS='Cand' AND RA2000HR = ? AND DEC2000DEG = ?) as SDB 
     INNER JOIN  SETIUSERS.SDB_PATH_TO_ACA AS ACA 
     ON SDB.UNIQUEID = ACA.UNIQUEID 
     ORDER BY SDB.UNIQUEID 
-    LIMIT ? OFFSET ?`, coordinates.RA, coordinates.Dec, limit, skiprows )
+    LIMIT ? OFFSET ?`, coordinates.RA, coordinates.Dec, limit, skiprows)
 
-  //todo: GROUP BY OBJECTNAME -- so we only send unique object names?
-  //OR should I group the results here instead?, allowing for multiple sets of signalDB rows to 
-  //be returned? Can probably do that within the SQL query
+	//todo: GROUP BY OBJECTNAME -- so we only send unique object names?
+	//OR should I group the results here instead?, allowing for multiple sets of signalDB rows to
+	//be returned? Can probably do that within the SQL query
 
-  if err != nil {
-    ReturnError(w, 500, "query_rows_error", err.Error())
-    return
-  }
+	if err != nil {
+		ReturnError(w, 500, "query_rows_error", err.Error())
+		return
+	}
 
-  type ReturnData struct {
-    TotalNumRows int64 `json:"total_num_rows"`
-    Skip int64 `json:"skipped_num_rows"`
-    Size int `json:"returned_num_rows"`
-    Data []SignalDBJoinACAPath `json:"rows"`
-  }
+	type ReturnData struct {
+		TotalNumRows int64                 `json:"total_num_rows"`
+		Skip         int64                 `json:"skipped_num_rows"`
+		Size         int                   `json:"returned_num_rows"`
+		Data         []SignalDBJoinACAPath `json:"rows"`
+	}
 
-  returnData := ReturnData{TotalNumRows: totalNumRows, Skip:skiprows, Size:len(signalDBJoinACAPaths), Data:signalDBJoinACAPaths}
-
+	returnData := ReturnData{TotalNumRows: totalNumRows, Skip: skiprows, Size: len(signalDBJoinACAPaths), Data: signalDBJoinACAPaths}
 
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
@@ -190,300 +310,285 @@ func AcaByCoordinates(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-
 func SpaceCraft(w http.ResponseWriter, r *http.Request) {
 
-  var err error = nil
+	var err error = nil
 
+	//use this to allow for a query to skip a number of initial rows
+	//we limit the output of this query to a maximum of 200 rows per query
+	skiprows, _ := strconv.ParseInt(r.URL.Query().Get("skip"), 10, 64)
 
-  //use this to allow for a query to skip a number of initial rows
-  //we limit the output of this query to a maximum of 200 rows per query
-  skiprows, _ := strconv.ParseInt(r.URL.Query().Get("skip"), 10, 64)
+	//use this to allow for a query to limit the number of returned rows.
+	//however, the maximum allowed is 200 rows per query
+	var limit int64 = 200
+	if r.URL.Query().Get("limit") != "" {
+		limit, _ = strconv.ParseInt(r.URL.Query().Get("limit"), 10, 64)
+		if limit > 200 {
+			limit = 200
+		}
+	}
 
-  //use this to allow for a query to limit the number of returned rows.
-  //however, the maximum allowed is 200 rows per query
-  var limit int64 = 200
-  if r.URL.Query().Get("limit") != "" {
-    limit, _ = strconv.ParseInt(r.URL.Query().Get("limit"), 10, 64)
-    if limit > 200 {
-      limit = 200
-    }  
-  }
+	dashDB, dashdbuser, dashdbpass = getDashDBCreds()
 
-  dashDB, dashdbuser, dashdbpass = getDashDBCreds()
+	connStr := []string{"DATABASE=", dashDB.Credentials["db"].(string), ";", "HOSTNAME=", dashDB.Credentials["hostname"].(string), ";",
+		"PORT=", strconv.FormatFloat(dashDB.Credentials["port"].(float64), 'f', 0, 64), ";", "PROTOCOL=TCPIP", ";", "UID=", dashdbuser, ";", "PWD=", dashdbpass}
+	conn := strings.Join(connStr, "")
 
-  connStr := []string{"DATABASE=", dashDB.Credentials["db"].(string), ";", "HOSTNAME=", dashDB.Credentials["hostname"].(string), ";",
-    "PORT=", strconv.FormatFloat(dashDB.Credentials["port"].(float64), 'f', 0, 64), ";", "PROTOCOL=TCPIP", ";", "UID=", dashdbuser, ";", "PWD=", dashdbpass}
-  conn := strings.Join(connStr, "")
+	db, err := sqlx.Connect("db2-cli", conn)
+	if err != nil {
+		ReturnError(w, 500, "db2_error", "Unable to open connection.")
+		return
+	}
+	db.MapperFunc(strings.ToUpper)
+	defer db.Close()
 
-  db, err := sqlx.Connect("db2-cli", conn)
-  if err != nil {
-    ReturnError(w, 500, "db2_error", "Unable to open connection.")
-    return
-  }
-  db.MapperFunc(strings.ToUpper)
-  defer db.Close()
+	var totalNumRows int64
 
-  
-  var totalNumRows int64
-
-  row := db.QueryRow(`SELECT count(*) FROM (SELECT UNIQUEID FROM SETIUSERS.SIGNALDB WHERE CATALOG='spacecraft') as SDB 
+	row := db.QueryRow(`SELECT count(*) FROM (SELECT UNIQUEID FROM SETIUSERS.SIGNALDB WHERE CATALOG='spacecraft') as SDB 
     INNER JOIN  SETIUSERS.SDB_PATH_TO_ACA AS ACA 
     ON SDB.UNIQUEID = ACA.UNIQUEID`)
 
-  err = row.Scan(&totalNumRows)
-  if err != nil {
-    ReturnError(w, 500, "query_count_error", err.Error())
-    return
-  }
+	err = row.Scan(&totalNumRows)
+	if err != nil {
+		ReturnError(w, 500, "query_count_error", err.Error())
+		return
+	}
 
-  signalDBJoinACAPaths := []SignalDBJoinACAPath{}
+	signalDBJoinACAPaths := []SignalDBJoinACAPath{}
 
-  err = db.Select(&signalDBJoinACAPaths, `SELECT SDB.*, ACA.CONTAINER AS CONTAINER, ACA.OBJECTNAME AS OBJECTNAME
+	err = db.Select(&signalDBJoinACAPaths, `SELECT SDB.*, ACA.CONTAINER AS CONTAINER, ACA.OBJECTNAME AS OBJECTNAME
     FROM (SELECT * FROM SETIUSERS.SIGNALDB WHERE CATALOG='spacecraft') as SDB 
     INNER JOIN  SETIUSERS.SDB_PATH_TO_ACA AS ACA 
     ON SDB.UNIQUEID = ACA.UNIQUEID 
     ORDER BY SDB.UNIQUEID 
-    LIMIT ? OFFSET ?`,limit, skiprows )
+    LIMIT ? OFFSET ?`, limit, skiprows)
 
-  if err != nil {
-    ReturnError(w, 500, "query_rows_error", err.Error())
-    return
-  }
+	if err != nil {
+		ReturnError(w, 500, "query_rows_error", err.Error())
+		return
+	}
 
-  type ReturnData struct {
-    TotalNumRows int64 `json:"total_num_rows"`
-    Skip int64 `json:"skipped_num_rows"`
-    Size int `json:"returned_num_rows"`
-    Data []SignalDBJoinACAPath `json:"rows"`
-  }
+	type ReturnData struct {
+		TotalNumRows int64                 `json:"total_num_rows"`
+		Skip         int64                 `json:"skipped_num_rows"`
+		Size         int                   `json:"returned_num_rows"`
+		Data         []SignalDBJoinACAPath `json:"rows"`
+	}
 
-  returnData := ReturnData{TotalNumRows: totalNumRows, Skip:skiprows, Size:len(signalDBJoinACAPaths), Data:signalDBJoinACAPaths}
+	returnData := ReturnData{TotalNumRows: totalNumRows, Skip: skiprows, Size: len(signalDBJoinACAPaths), Data: signalDBJoinACAPaths}
 
-
-  w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-  w.WriteHeader(http.StatusOK)
-  if err := json.NewEncoder(w).Encode(returnData); err != nil {
-    panic(err)
-  }
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(returnData); err != nil {
+		panic(err)
+	}
 }
 
 func KnownCandCoordinates(w http.ResponseWriter, r *http.Request) {
-  //query parameters
-  //skip
-  //limit
-  //ramin
-  //ramax
-  //decmin
-  //decmax
+	//query parameters
+	//skip
+	//limit
+	//ramin
+	//ramax
+	//decmin
+	//decmax
 
+	//use this to allow for a query to skip a number of initial rows
+	//we limit the output of this query to a maximum of 200 rows per query
+	skiprows, _ := strconv.ParseInt(r.URL.Query().Get("skip"), 10, 64)
 
+	//use this to allow for a query to limit the number of returned rows.
+	//however, the maximum allowed is 200 rows per query
+	var limit int64 = 200
+	if r.URL.Query().Get("limit") != "" {
+		limit, _ = strconv.ParseInt(r.URL.Query().Get("limit"), 10, 64)
+		if limit > 200 {
+			limit = 200
+		}
+	}
 
-  //use this to allow for a query to skip a number of initial rows
-  //we limit the output of this query to a maximum of 200 rows per query
-  skiprows, _ := strconv.ParseInt(r.URL.Query().Get("skip"), 10, 64)
+	ramin := 0.0
+	if r.URL.Query().Get("ramin") != "" {
+		ramin, _ = strconv.ParseFloat(r.URL.Query().Get("ramin"), 64)
+	}
 
-  //use this to allow for a query to limit the number of returned rows.
-  //however, the maximum allowed is 200 rows per query
-  var limit int64 = 200
-  if r.URL.Query().Get("limit") != "" {
-    limit, _ = strconv.ParseInt(r.URL.Query().Get("limit"), 10, 64)
-    if limit > 200 {
-      limit = 200
-    }  
-  }
+	ramax := 24.0
+	if r.URL.Query().Get("ramax") != "" {
+		ramax, _ = strconv.ParseFloat(r.URL.Query().Get("ramax"), 64)
+	}
 
-  ramin := 0.0
-  if r.URL.Query().Get("ramin") != "" {
-    ramin, _ = strconv.ParseFloat(r.URL.Query().Get("ramin"), 64) 
-  }
-  
-  ramax := 24.0
-  if r.URL.Query().Get("ramax") != "" {
-    ramax, _ = strconv.ParseFloat(r.URL.Query().Get("ramax"), 64)
-  }
+	decmin := -90.0
+	if r.URL.Query().Get("decmin") != "" {
+		decmin, _ = strconv.ParseFloat(r.URL.Query().Get("decmin"), 64)
+	}
 
-  decmin := -90.0
-  if r.URL.Query().Get("decmin") != "" {
-    decmin, _ = strconv.ParseFloat(r.URL.Query().Get("decmin"), 64)
-  }
+	decmax := 90.0
+	if r.URL.Query().Get("decmax") != "" {
+		decmax, _ = strconv.ParseFloat(r.URL.Query().Get("decmax"), 64)
+	}
 
-  decmax := 90.0
-  if r.URL.Query().Get("decmax") != "" {
-    decmax, _ = strconv.ParseFloat(r.URL.Query().Get("decmax"), 64)  
-  }
-  
-  dashDB, dashdbuser, dashdbpass = getDashDBCreds()
-  
-  connStr := []string{"DATABASE=", dashDB.Credentials["db"].(string), ";", "HOSTNAME=", dashDB.Credentials["hostname"].(string), ";",
-    "PORT=", strconv.FormatFloat(dashDB.Credentials["port"].(float64), 'f', 0, 64), ";", "PROTOCOL=TCPIP", ";", "UID=", dashdbuser, ";", "PWD=", dashdbpass}
-  conn := strings.Join(connStr, "")
+	dashDB, dashdbuser, dashdbpass = getDashDBCreds()
 
-  db, err := sqlx.Connect("db2-cli", conn)
-  if err != nil {
-    ReturnError(w, 500, "db2_error", "Unable to open connection.")
-    return
-  }
-  db.MapperFunc(strings.ToUpper)
-  defer db.Close()
+	connStr := []string{"DATABASE=", dashDB.Credentials["db"].(string), ";", "HOSTNAME=", dashDB.Credentials["hostname"].(string), ";",
+		"PORT=", strconv.FormatFloat(dashDB.Credentials["port"].(float64), 'f', 0, 64), ";", "PROTOCOL=TCPIP", ";", "UID=", dashdbuser, ";", "PWD=", dashdbpass}
+	conn := strings.Join(connStr, "")
 
+	db, err := sqlx.Connect("db2-cli", conn)
+	if err != nil {
+		ReturnError(w, 500, "db2_error", "Unable to open connection.")
+		return
+	}
+	db.MapperFunc(strings.ToUpper)
+	defer db.Close()
 
-  var totalNumRows int64
+	var totalNumRows int64
 
-  row := db.QueryRow(`SELECT count(*) FROM SETIUSERS.ACA_CANDIDATE_COORDINATES 
-    WHERE RA2000HR >= ? AND RA2000HR < ? AND DEC2000DEG >= ? AND DEC2000DEG < ?`,ramin, ramax, decmin, decmax)
+	row := db.QueryRow(`SELECT count(*) FROM SETIUSERS.ACA_CANDIDATE_COORDINATES 
+    WHERE RA2000HR >= ? AND RA2000HR < ? AND DEC2000DEG >= ? AND DEC2000DEG < ?`, ramin, ramax, decmin, decmax)
 
-  err = row.Scan(&totalNumRows)
-  if err != nil {
-    ReturnError(w, 500, "query_count_error", err.Error())
-    return
-  }
+	err = row.Scan(&totalNumRows)
+	if err != nil {
+		ReturnError(w, 500, "query_count_error", err.Error())
+		return
+	}
 
-  knownACACoordinates := []KnownACACoordinate{}
-  err = db.Select(&knownACACoordinates, `SELECT * FROM SETIUSERS.ACA_CANDIDATE_COORDINATES 
+	knownACACoordinates := []KnownACACoordinate{}
+	err = db.Select(&knownACACoordinates, `SELECT * FROM SETIUSERS.ACA_CANDIDATE_COORDINATES 
     WHERE RA2000HR >= ? AND RA2000HR < ? AND DEC2000DEG >= ? AND DEC2000DEG < ? 
-    ORDER BY RA2000HR, DEC2000DEG LIMIT ? OFFSET ?`,ramin, ramax, decmin, decmax, limit,skiprows)
-  
-  if err != nil {
-    ReturnError(w, 500, "query_rows_error", err.Error())
-    return
-  }
+    ORDER BY RA2000HR, DEC2000DEG LIMIT ? OFFSET ?`, ramin, ramax, decmin, decmax, limit, skiprows)
 
-  type ReturnData struct {
-    TotalNumRows int64 `json:"total_num_rows"`
-    Skip int64 `json:"skipped_num_rows"`
-    Size int `json:"returned_num_rows"`
-    Data []KnownACACoordinate `json:"rows"`
-  }
+	if err != nil {
+		ReturnError(w, 500, "query_rows_error", err.Error())
+		return
+	}
 
-  returnData := ReturnData{TotalNumRows: totalNumRows, Skip:skiprows, Size:len(knownACACoordinates), Data:knownACACoordinates}
+	type ReturnData struct {
+		TotalNumRows int64                `json:"total_num_rows"`
+		Skip         int64                `json:"skipped_num_rows"`
+		Size         int                  `json:"returned_num_rows"`
+		Data         []KnownACACoordinate `json:"rows"`
+	}
 
-  w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-  w.WriteHeader(http.StatusOK)
-  if err := json.NewEncoder(w).Encode(returnData); err != nil {
-    panic(err)
-  }
+	returnData := ReturnData{TotalNumRows: totalNumRows, Skip: skiprows, Size: len(knownACACoordinates), Data: knownACACoordinates}
+
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(returnData); err != nil {
+		panic(err)
+	}
 }
 
-
-
-
-  
 func getSetiPublicConnectionWithLocalEnvars() swift.Connection {
-  
-  c := swift.Connection{
-      UserName: os.Getenv("SWIFT_API_USER"), //username
-      ApiKey: os.Getenv("SWIFT_API_KEY"),  //password
-      AuthUrl: os.Getenv("SWIFT_AUTH_URL"), //reponsibility of envar to contain the full URL, including v1.0, v2, or v3
-      Domain: os.Getenv("SWIFT_API_DOMAIN"), //domainName (optional, for v3 only)
-      DomainId: os.Getenv("SWIFT_API_DOMAIN_ID"), //domainId (optional, for v3 only)
-      Tenant: os.Getenv("SWIFT_TENANT"), //project in vcap_services on bluemix (optional, for v3 only)
-      TenantId: os.Getenv("SWIFT_TENANT_ID"), //projectId in vcap_services on bluemix (optional, for v3 only)
-    }
-  return c
+
+	c := swift.Connection{
+		UserName: os.Getenv("SWIFT_API_USER"),      //username
+		ApiKey:   os.Getenv("SWIFT_API_KEY"),       //password
+		AuthUrl:  os.Getenv("SWIFT_AUTH_URL"),      //reponsibility of envar to contain the full URL, including v1.0, v2, or v3
+		Domain:   os.Getenv("SWIFT_API_DOMAIN"),    //domainName (optional, for v3 only)
+		DomainId: os.Getenv("SWIFT_API_DOMAIN_ID"), //domainId (optional, for v3 only)
+		Tenant:   os.Getenv("SWIFT_TENANT"),        //project in vcap_services on bluemix (optional, for v3 only)
+		TenantId: os.Getenv("SWIFT_TENANT_ID"),     //projectId in vcap_services on bluemix (optional, for v3 only)
+	}
+	return c
 }
 
 func getSetiPublicConnection() swift.Connection {
-  var c swift.Connection
+	var c swift.Connection
 
-  appEnv, err := cfenv.Current()
-  if err != nil {
-    //we are not in a CF environment. Attempt to get credentials from local envars
-    //we use the same envar names that are used in the swift library tests
-    
-    c = getSetiPublicConnectionWithLocalEnvars()
+	appEnv, err := cfenv.Current()
+	if err != nil {
+		//we are not in a CF environment. Attempt to get credentials from local envars
+		//we use the same envar names that are used in the swift library tests
 
-  } else {
-    services, err := appEnv.Services.WithLabel("Object-Storage")
+		c = getSetiPublicConnectionWithLocalEnvars()
 
-    if err != nil {
-      //even though we're in a CF environgment, we didn't find an object store
-      //bound to the app. So, we instantiate a swift.Connection object
-      //with envars that should be set. 
-      c = getSetiPublicConnectionWithLocalEnvars()
+	} else {
+		services, err := appEnv.Services.WithLabel("Object-Storage")
 
-    } else {
-      objstore := services[0] //assume it's the only one (bad)
-      c = swift.Connection{
-        UserName: objstore.Credentials["userId"].(string),
-        ApiKey: objstore.Credentials["password"].(string),
-        AuthUrl: objstore.Credentials["auth_url"].(string) + "/v3",  //have to add this manually here. no other way.
-        Domain: objstore.Credentials["domainName"].(string), 
-        DomainId: objstore.Credentials["domainId"].(string), 
-        Tenant: objstore.Credentials["project"].(string), 
-        TenantId: objstore.Credentials["projectId"].(string), 
-      }  
-    }
-  }
+		if err != nil {
+			//even though we're in a CF environgment, we didn't find an object store
+			//bound to the app. So, we instantiate a swift.Connection object
+			//with envars that should be set.
+			c = getSetiPublicConnectionWithLocalEnvars()
 
-  return c
+		} else {
+			objstore := services[0] //assume it's the only one (bad)
+			c = swift.Connection{
+				UserName: objstore.Credentials["userId"].(string),
+				ApiKey:   objstore.Credentials["password"].(string),
+				AuthUrl:  objstore.Credentials["auth_url"].(string) + "/v3", //have to add this manually here. no other way.
+				Domain:   objstore.Credentials["domainName"].(string),
+				DomainId: objstore.Credentials["domainId"].(string),
+				Tenant:   objstore.Credentials["project"].(string),
+				TenantId: objstore.Credentials["projectId"].(string),
+			}
+		}
+	}
+
+	return c
 }
 
-func GetACARawDataTempURL (w http.ResponseWriter, r *http.Request) {
+func GetACARawDataTempURL(w http.ResponseWriter, r *http.Request) {
 
-  swift_secret_key := os.Getenv("SWIFT_SECRET_KEY")
+	swift_secret_key := os.Getenv("SWIFT_SECRET_KEY")
 
-  if swift_secret_key == "" {
-    ReturnError(w, 500, "temp_url_error", "secret key not found")
-    return
-  }
+	if swift_secret_key == "" {
+		ReturnError(w, 500, "temp_url_error", "secret key not found")
+		return
+	}
 
+	vars := mux.Vars(r)
+	container := vars["container"]
+	objectname := vars["date"] + "/" + vars["act"] + "/" + vars["acafile"]
 
-  vars := mux.Vars(r)
-  container := vars["container"]
-  objectname := vars["date"] + "/" + vars["act"] + "/" + vars["acafile"]
+	c := getSetiPublicConnection()
 
-  c := getSetiPublicConnection()
+	err := c.Authenticate()
+	if err != nil {
+		ReturnError(w, 500, "temp_url_error", err.Error())
+		return
+	}
 
-  err := c.Authenticate()
-  if err != nil {
-      ReturnError(w, 500, "temp_url_error", err.Error())
-      return
-  }
+	//default to 1 hour... But check for envar
+	//that can control expiration time
+	//For example, coudl be set to "60s", or "24h".
+	//See https://golang.org/pkg/time/#ParseDuration
+	expiration := time.Now().Add(time.Second * 3600)
 
+	if os.Getenv("EXPIRATION_TIME") != "" {
+		extim, err := time.ParseDuration(os.Getenv("EXPIRATION_TIME"))
+		if err == nil {
+			expiration = time.Now().Add(extim)
+		} else {
+			fmt.Println("Failed to parse expiration from EXPIRATION_TIME: " + err.Error())
+		}
+	}
 
-  //default to 1 hour... But check for envar 
-  //that can control expiration time
-  //For example, coudl be set to "60s", or "24h".
-  //See https://golang.org/pkg/time/#ParseDuration
-  expiration := time.Now().Add(time.Second*3600)
+	temp_url := c.ObjectTempUrl(container, objectname, swift_secret_key, "GET", expiration)
 
-  if os.Getenv("EXPIRATION_TIME") != "" {
-    extim, err := time.ParseDuration(os.Getenv("EXPIRATION_TIME"))
-    if err == nil {
-      expiration = time.Now().Add(extim)
-    } else {
-      fmt.Println("Failed to parse expiration from EXPIRATION_TIME: " + err.Error())
-    }
-  } 
+	if temp_url == "" {
+		ReturnError(w, 500, "temp_url_error", "returned empty URL")
+		return
+	}
 
-  temp_url := c.ObjectTempUrl(container, objectname, swift_secret_key, "GET", expiration)
+	type ReturnData struct {
+		Url    string `json:"temp_url"`
+		Notice string `json:"license_notification"`
+	}
 
-  if temp_url == "" {
-    ReturnError(w, 500, "temp_url_error", "returned empty URL")
-    return
-  }
+	license := "This data is licensed by the SETI Institute under the Create Commons BY 4.0 license. IBM has been granted non-exclusive permission by the SETI Institute to reproduce, prepare derivative works, and distribute copies of data, which have been provided to IBM, or will be provided in the future, by the SETI Institute under the Creative Commons BY 4.0 license. https://github.com/ibmjstart/SETI/blob/master/setigopublic.md#data-license"
+	returnData := ReturnData{Url: temp_url, Notice: license}
 
-  type ReturnData struct {
-    Url string `json:"temp_url"`
-    Notice string `json:"license_notification"`
-  }
-
-  license := "This data is licensed by the SETI Institute under the Create Commons BY 4.0 license. IBM has been granted non-exclusive permission by the SETI Institute to reproduce, prepare derivative works, and distribute copies of data, which have been provided to IBM, or will be provided in the future, by the SETI Institute under the Creative Commons BY 4.0 license. https://github.com/ibmjstart/SETI/blob/master/setigopublic.md#data-license"
-  returnData := ReturnData{Url:temp_url, Notice:license}
-
-  w.WriteHeader(http.StatusOK)
-  if err := json.NewEncoder(w).Encode(returnData); err != nil {
-    panic(err)
-  }
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(returnData); err != nil {
+		panic(err)
+	}
 
 }
 
-func GetACARawDataToken (w http.ResponseWriter, r *http.Request) {
-  vars := mux.Vars(r)
-  //caller_name := vars["username"]
-  //caller_email := vars["email"]
-  log.Printf("coordinates: %v", vars)
+func GetACARawDataToken(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	//caller_name := vars["username"]
+	//caller_email := vars["email"]
+	log.Printf("coordinates: %v", vars)
 }
-
-
