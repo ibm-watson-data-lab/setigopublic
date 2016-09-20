@@ -1,9 +1,7 @@
 package main
 
 import (
-	"log"
 	"net/http"
-	"time"
 )
 
 func RateLimitHandler(inner http.Handler, rateLimited bool) http.Handler {
@@ -11,8 +9,7 @@ func RateLimitHandler(inner http.Handler, rateLimited bool) http.Handler {
 		if !rateLimited {
 			inner.ServeHTTP(w, r)
 		} else {
-			log.Printf("\n")
-			log.Printf("Request for rate-limited resource.")
+
 			token := r.URL.Query().Get("token")
 			if token == "" {
 				ReturnError(w, 500, "token_error", "Provide a token with your request '?token=abcdef123456789'")
@@ -23,10 +20,10 @@ func RateLimitHandler(inner http.Handler, rateLimited bool) http.Handler {
 				ReturnError(w, httpStatusCode, error, reason)
 			} else {
 				inner.ServeHTTP(w, r)
+
 				// Record access in goroutine
-				start := time.Now()
 				go RecordRateLimitedRequest(rateLimitedResourceResponse.Token, rateLimitedResourceResponse.Request, rateLimitedResourceResponse.Date)
-				log.Printf("Time to async POST to Cloudant: %s", time.Since(start))
+
 			}
 		}
 	})

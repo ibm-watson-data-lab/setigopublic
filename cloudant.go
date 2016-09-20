@@ -142,7 +142,6 @@ func GetToken(user *User) (getTokenResponse *GetTokenResponse, httpStatusCode in
 
 	} else {
 		//found the user
-		log.Print("Found user. Returning access token.")
 		user_row := cloudant_response.Rows[0]
 
 		return &GetTokenResponse{AccessToken: user_row.Id}, 400, "", ""
@@ -154,7 +153,6 @@ func VerifyRateLimitedResource(token string, url string) (rateLimitedResourceRes
 	cloudant_base_url := os.Getenv("CLOUDANT_SETI_USERS_BASE_URL")
 	limit, _ := strconv.ParseUint(os.Getenv("SETI_USERS_MONTHLY_LIMIT"), 10, 64)
 
-	start := time.Now()
 	req_url := cloudant_base_url + token
 	client := getHttpClient()
 
@@ -164,9 +162,6 @@ func VerifyRateLimitedResource(token string, url string) (rateLimitedResourceRes
 		log.Printf("cloudant_error: %s", err.Error())
 		return nil, 500, "cloudant_error", "Error GETing token document"
 	}
-
-	log.Printf("Time to GET document: %s", time.Since(start))
-	start = time.Now()
 
 	if response.StatusCode == 200 {
 		var doc CloudantUserDoc
@@ -184,8 +179,6 @@ func VerifyRateLimitedResource(token string, url string) (rateLimitedResourceRes
 		return nil, 500, "cloudant_error", "Token Not Found."
 	}
 
-	log.Printf("Limit for token %s = %d", token, limit)
-
 	//Now check to see if the number of documents requested so
 	//far for this token has exceeded our monthly limit
 	now := time.Now()
@@ -195,7 +188,6 @@ func VerifyRateLimitedResource(token string, url string) (rateLimitedResourceRes
 	//size view url
 	size_view_string := fmt.Sprintf("_design/docs/_view/token_date_size?startkey=[\"%s\",%d]&endkey=[\"%s\",%d]", token, date_last_month, token, date_today)
 
-	log.Printf("View URL: %s", size_view_string)
 	req_url = cloudant_base_url + size_view_string
 	response, err = client.Get(req_url)
 	defer response.Body.Close()
@@ -203,9 +195,6 @@ func VerifyRateLimitedResource(token string, url string) (rateLimitedResourceRes
 		log.Printf("cloudant_error: %s", err.Error())
 		return nil, 500, "cloudant_error", "Error GETing token access count"
 	}
-
-	log.Printf("Time to GET view results: %s", time.Since(start))
-	start = time.Now()
 
 	var view_results ViewResult
 	err = json.NewDecoder(response.Body).Decode(&view_results)
@@ -227,7 +216,6 @@ func VerifyRateLimitedResource(token string, url string) (rateLimitedResourceRes
 			return nil, 403, "data_limit_error", "You've reached your limit for the month."
 		}
 	}
-	log.Printf("Time to decode and perform logic: %s", time.Since(start))
 	
 	return &RateLimitedResourceResponse{Token: token, Request: url, Date: date_today}, 400, "", ""
 }
