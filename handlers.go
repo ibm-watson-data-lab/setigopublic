@@ -1,32 +1,23 @@
 package main
 
 import (
-	_ "bitbucket.org/phiggins/db2cli"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	cfenv "github.com/cloudfoundry-community/go-cfenv"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
-	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/ncw/swift"
 	"golang.org/x/oauth2"
 )
 
-var (
-	dashDB     cfenv.Service
-	dashdbuser string
-	dashdbpass string
-)
 
 var oauthConfig = &oauth2.Config{
 	ClientID:     os.Getenv("OAUTH_CLIENT_ID"),
@@ -121,62 +112,6 @@ func Token(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-
-func getDashDBCreds() (cfenv.Service, string, string) {
-
-	// Returns the dashdB Service, plus DASHDBUSER, DASHDBPASS
-
-	//get dashDB service details
-	var dashDB cfenv.Service
-
-	appEnv, err := cfenv.Current()
-	if err != nil {
-		//we are not in a CF environment. Attempt to get dashDB credentials from local envars
-		vcap := os.Getenv("VCAP_SERVICES")
-
-		var vcapj cfenv.Services
-
-		if vcap == "" {
-			panic(errors.New("No VCAP_SERVICES found."))
-		}
-
-		if err := json.Unmarshal([]byte(vcap), &vcapj); err != nil {
-			panic(err)
-		}
-
-		services, err := vcapj.WithLabel("dashDB")
-
-		if err != nil {
-			panic(err)
-		}
-
-		dashDB = services[0]
-
-	} else {
-		services, err := appEnv.Services.WithLabel("dashDB")
-
-		if err != nil {
-			panic(err)
-		}
-
-		dashDB = services[0]
-	}
-
-	//I should probably use the setiusers values for username/password instead of the admin values
-	//This might be safer.
-	dashdbuser := os.Getenv("DASHDBUSER")
-	dashdbpass := os.Getenv("DASHDBPASS")
-	if dashdbuser == "" {
-		panic(errors.New("No DASHDBUSER found."))
-	}
-
-	if dashdbpass == "" {
-		panic(errors.New("No DASHDBPASS found."))
-	}
-
-	return dashDB, dashdbuser, dashdbpass
-}
-
 func Index(w http.ResponseWriter, r *http.Request) {
 	// load user from session
 	session, err := sessionStore.Get(r, "user_session")
@@ -234,23 +169,10 @@ func AcaByCoordinates(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	dashDB, dashdbuser, dashdbpass = getDashDBCreds()
-
-	connStr := []string{"DATABASE=", dashDB.Credentials["db"].(string), ";", "HOSTNAME=", dashDB.Credentials["hostname"].(string), ";",
-		"PORT=", strconv.FormatFloat(dashDB.Credentials["port"].(float64), 'f', 0, 64), ";", "PROTOCOL=TCPIP", ";", "UID=", dashdbuser, ";", "PWD=", dashdbpass}
-	conn := strings.Join(connStr, "")
-
-	db, err := sqlx.Connect("db2-cli", conn)
-	if err != nil {
-		ReturnError(w, 500, "db2_error", "Unable to open connection.")
-		return
-	}
-	db.MapperFunc(strings.ToUpper)
-	defer db.Close()
 
 	var totalNumRows int64
 
-	row := db.QueryRow(`SELECT count(*) FROM (SELECT UNIQUEID FROM SETIUSERS.SIGNALDB WHERE SIGCLASS='Cand'
+	row := dbConnection.QueryRow(`SELECT count(*) FROM (SELECT UNIQUEID FROM SETIUSERS.SIGNALDB WHERE SIGCLASS='Cand'
     AND RA2000HR = ? AND DEC2000DEG = ?) as SDB 
     INNER JOIN  SETIUSERS.SDB_PATH_TO_ACA AS ACA 
     ON SDB.UNIQUEID = ACA.UNIQUEID`, coordinates.RA, coordinates.Dec)
@@ -263,7 +185,7 @@ func AcaByCoordinates(w http.ResponseWriter, r *http.Request) {
 
 	signalDBJoinACAPaths := []SignalDBJoinACAPath{}
 
-	err = db.Select(&signalDBJoinACAPaths, `SELECT SDB.*, ACA.CONTAINER AS CONTAINER, ACA.OBJECTNAME AS OBJECTNAME
+	err = dbConnection.Select(&signalDBJoinACAPaths, `SELECT SDB.*, ACA.CONTAINER AS CONTAINER, ACA.OBJECTNAME AS OBJECTNAME
     FROM (SELECT * FROM SETIUSERS.SIGNALDB WHERE SIGCLASS='Cand' AND RA2000HR = ? AND DEC2000DEG = ?) as SDB 
     INNER JOIN  SETIUSERS.SDB_PATH_TO_ACA AS ACA 
     ON SDB.UNIQUEID = ACA.UNIQUEID 
@@ -313,23 +235,10 @@ func SpaceCraft(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	dashDB, dashdbuser, dashdbpass = getDashDBCreds()
-
-	connStr := []string{"DATABASE=", dashDB.Credentials["db"].(string), ";", "HOSTNAME=", dashDB.Credentials["hostname"].(string), ";",
-		"PORT=", strconv.FormatFloat(dashDB.Credentials["port"].(float64), 'f', 0, 64), ";", "PROTOCOL=TCPIP", ";", "UID=", dashdbuser, ";", "PWD=", dashdbpass}
-	conn := strings.Join(connStr, "")
-
-	db, err := sqlx.Connect("db2-cli", conn)
-	if err != nil {
-		ReturnError(w, 500, "db2_error", "Unable to open connection.")
-		return
-	}
-	db.MapperFunc(strings.ToUpper)
-	defer db.Close()
 
 	var totalNumRows int64
 
-	row := db.QueryRow(`SELECT count(*) FROM (SELECT UNIQUEID FROM SETIUSERS.SIGNALDB WHERE CATALOG='spacecraft') as SDB 
+	row := dbConnection.QueryRow(`SELECT count(*) FROM (SELECT UNIQUEID FROM SETIUSERS.SIGNALDB WHERE CATALOG='spacecraft') as SDB 
     INNER JOIN  SETIUSERS.SDB_PATH_TO_ACA AS ACA 
     ON SDB.UNIQUEID = ACA.UNIQUEID`)
 
@@ -341,7 +250,7 @@ func SpaceCraft(w http.ResponseWriter, r *http.Request) {
 
 	signalDBJoinACAPaths := []SignalDBJoinACAPath{}
 
-	err = db.Select(&signalDBJoinACAPaths, `SELECT SDB.*, ACA.CONTAINER AS CONTAINER, ACA.OBJECTNAME AS OBJECTNAME
+	err = dbConnection.Select(&signalDBJoinACAPaths, `SELECT SDB.*, ACA.CONTAINER AS CONTAINER, ACA.OBJECTNAME AS OBJECTNAME
     FROM (SELECT * FROM SETIUSERS.SIGNALDB WHERE CATALOG='spacecraft') as SDB 
     INNER JOIN  SETIUSERS.SDB_PATH_TO_ACA AS ACA 
     ON SDB.UNIQUEID = ACA.UNIQUEID 
@@ -412,33 +321,19 @@ func KnownCandCoordinates(w http.ResponseWriter, r *http.Request) {
 		decmax, _ = strconv.ParseFloat(r.URL.Query().Get("decmax"), 64)
 	}
 
-	dashDB, dashdbuser, dashdbpass = getDashDBCreds()
-
-	connStr := []string{"DATABASE=", dashDB.Credentials["db"].(string), ";", "HOSTNAME=", dashDB.Credentials["hostname"].(string), ";",
-		"PORT=", strconv.FormatFloat(dashDB.Credentials["port"].(float64), 'f', 0, 64), ";", "PROTOCOL=TCPIP", ";", "UID=", dashdbuser, ";", "PWD=", dashdbpass}
-	conn := strings.Join(connStr, "")
-
-	db, err := sqlx.Connect("db2-cli", conn)
-	if err != nil {
-		ReturnError(w, 500, "db2_error", "Unable to open connection.")
-		return
-	}
-	db.MapperFunc(strings.ToUpper)
-	defer db.Close()
-
 	var totalNumRows int64
 
-	row := db.QueryRow(`SELECT count(*) FROM SETIUSERS.ACA_CANDIDATE_COORDINATES 
+	row := dbConnection.QueryRow(`SELECT count(*) FROM SETIUSERS.ACA_CANDIDATE_COORDINATES 
     WHERE RA2000HR >= ? AND RA2000HR < ? AND DEC2000DEG >= ? AND DEC2000DEG < ?`, ramin, ramax, decmin, decmax)
 
-	err = row.Scan(&totalNumRows)
+	err := row.Scan(&totalNumRows)
 	if err != nil {
 		ReturnError(w, 500, "query_count_error", err.Error())
 		return
 	}
 
 	knownACACoordinates := []KnownACACoordinate{}
-	err = db.Select(&knownACACoordinates, `SELECT * FROM SETIUSERS.ACA_CANDIDATE_COORDINATES 
+	err = dbConnection.Select(&knownACACoordinates, `SELECT * FROM SETIUSERS.ACA_CANDIDATE_COORDINATES 
     WHERE RA2000HR >= ? AND RA2000HR < ? AND DEC2000DEG >= ? AND DEC2000DEG < ? 
     ORDER BY RA2000HR, DEC2000DEG LIMIT ? OFFSET ?`, ramin, ramax, decmin, decmax, limit, skiprows)
 
