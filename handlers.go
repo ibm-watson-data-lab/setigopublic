@@ -586,9 +586,3 @@ func GetACARawDataTempURL(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func GetACARawDataToken(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	//caller_name := vars["username"]
-	//caller_email := vars["email"]
-	log.Printf("coordinates: %v", vars)
-}

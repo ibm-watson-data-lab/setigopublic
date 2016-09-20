@@ -104,15 +104,7 @@ var routes = Routes{
 		false,
 		true,
 	},
-	Route{
-		"DataToken",
-		"GET",
-		"/v1/token/{username}/{email}",
-		GetACARawDataToken,
-		false,
-		false,
-	},
-
+	
 	// ### Potential future API ###
 	// Route{
 	//     "CompampSingleFileByCoordinates",
