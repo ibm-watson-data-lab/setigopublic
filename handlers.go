@@ -36,7 +36,6 @@ var oauthConfig = &oauth2.Config{
 		AuthURL:  "https://login.ng.bluemix.net/UAALoginServerWAR/oauth/authorize",
 		TokenURL: "https://login.ng.bluemix.net/UAALoginServerWAR/oauth/token",
 	},
-	RedirectURL: "http://localhost:8080/auth",
 }
 var sessionStore = sessions.NewCookieStore([]byte("$ECRET$ETIcode"))
 
