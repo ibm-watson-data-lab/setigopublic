@@ -121,21 +121,6 @@ func Token(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func GetData(w http.ResponseWriter, r *http.Request) {
-	type GetDataResponse struct {
-		Url string `json:"temp_url"`
-	}
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(&GetDataResponse{Url: "https://this.is.just.a.test"}); err != nil {
-		panic(err)
-	}
-}
-
-// this didn't seem to work the first time I tried it... ??
-// perhaps because CF Env wasn't set up?
-//func init() {
-//  dashDB, dashdbuser, dashdbpass = getDashDBCreds()
-//}
 
 func getDashDBCreds() (cfenv.Service, string, string) {
 

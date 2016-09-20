@@ -56,14 +56,6 @@ var routes = Routes{
 		false,
 	},
 	Route{
-		"DataURL",
-		"GET",
-		"/data",
-		GetData,
-		false, //doesn't require Oauth2, but will require a valid token
-		true,
-	},
-	Route{
 		"ACASingleFileByCoordinates",
 		"GET",
 		"/v1/aca/meta/{ra}/{dec}",
