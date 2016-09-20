@@ -29,6 +29,15 @@
 			"Rev": "9c19ed558d5df4da88e2ade9c8940d742aef0e7e"
 		},
 		{
+			"ImportPath": "github.com/gorilla/securecookie",
+			"Comment": "v1.1-4-gc13558c",
+			"Rev": "c13558c2b1c44da35e0eb043053609a5ba3a1f19"
+		},
+		{
+			"ImportPath": "github.com/gorilla/sessions",
+			"Rev": "1bbba13ba476e132b5a0739b18f1653c3e57d3c1"
+		},
+		{
 			"ImportPath": "github.com/jmoiron/sqlx",
 			"Comment": "sqlx-v1.1-65-ga7f971f",
 			"Rev": "a7f971fe8ea891a1a74ddb40c623f5722e28e8a8"
@@ -55,6 +64,18 @@
 		{
 			"ImportPath": "github.com/ncw/swift",
 			"Rev": "ce444d6d47c51d4dda9202cd38f5094dd8e27e86"
+		},
+		{
+			"ImportPath": "golang.org/x/net/context",
+			"Rev": "7394c112eae4dba7e96bfcfe738e6373d61772b4"
+		},
+		{
+			"ImportPath": "golang.org/x/oauth2",
+			"Rev": "3b966c7f301c0c71c53d94dc632a62df0a682cd7"
+		},
+		{
+			"ImportPath": "golang.org/x/oauth2/internal",
+			"Rev": "3b966c7f301c0c71c53d94dc632a62df0a682cd7"
 		},
 		{
 			"ImportPath": "gopkg.in/guregu/null.v3",

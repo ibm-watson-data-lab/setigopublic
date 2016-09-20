@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "bitbucket.org/phiggins/db2cli"
 	"encoding/json"
 	"errors"
 	"fmt"
