@@ -69,7 +69,7 @@ var routes = Routes{
 		"/v1/aca/meta/{ra}/{dec}",
 		AcaByCoordinates,
 		false,
-		true,
+		false,
 	},
 	Route{
 		"ACAMetaForSpacecraft",
@@ -77,7 +77,7 @@ var routes = Routes{
 		"/v1/aca/meta/spacecraft",
 		SpaceCraft,
 		false,
-		true,
+		false,
 	},
 	// Route{
 	//     "AcaBlockByTGTID",
@@ -93,7 +93,7 @@ var routes = Routes{
 		"/v1/coordinates/aca",
 		KnownCandCoordinates,
 		false,
-		true,
+		false,
 	},
 	//        "/v1/aca/url/{container}/{objectname:\"[a-zA-Z0-9=\\-\\/.]+}\"},  //this regex doesn't work!
 	Route{
@@ -110,7 +110,7 @@ var routes = Routes{
 		"/v1/token/{username}/{email}",
 		GetACARawDataToken,
 		false,
-		true,
+		false,
 	},
 
 	// ### Potential future API ###
