@@ -99,12 +99,11 @@ func main() {
 		if port = os.Getenv("PORT"); len(port) == 0 {
 			port = DEFAULT_PORT
 		}
-		oauthConfig.RedirectURL = "http://localhost:" + port + "/auth"
 	} else {
 		port = strconv.Itoa(appEnv.Port)
-		oauthConfig.RedirectURL = "https://" + appEnv.Host + ":" + port + "/auth"
 	}
 
+	oauthConfig.RedirectURL = os.Getenv("OATH_REDIRECT_URL") + "/auth"
 
 	dashDB, dashdbuser, dashdbpass = getDashDBCreds()
 
