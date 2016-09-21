@@ -10,9 +10,9 @@ func RateLimitHandler(inner http.Handler, rateLimited bool) http.Handler {
 			inner.ServeHTTP(w, r)
 		} else {
 
-			token := r.URL.Query().Get("token")
+			token := r.URL.Query().Get("access_token")
 			if token == "" {
-				ReturnError(w, 500, "token_error", "Provide a token with your request '?token=abcdef123456789'")
+				ReturnError(w, 500, "access_token_error", "Provide an access_token with your request '?access_token=abcdef123456789'")
 				return
 			}
 			var rateLimitedResourceResponse, httpStatusCode, error, reason = VerifyRateLimitedResource(token, r.URL.String())
