@@ -1,30 +1,42 @@
 # SETI Public Data Server
 
-A Go-based server for Public SETI data sets, part of the [IBM+SETI partnership](http://ibmjstart.github.io/SETI/). 
-
 The SETI Institute utilizes the Allen Telescope Array (ATA) to search for radio signals from intelligent life
 beyond our Solar System. Nearly each night, the ATA observes radio frequencies in the ~1-10 GHz 
 frequency range from particular localtions in the sky. 
 
 Observation of a potential signal results in two pieces of data: a raw data file, called a `compamp`
-or `archive-compamp`, and preliminary measurement and categorization of the signal, which is stored as a row
-in the `SignalDB` table. A SignalDB row contains signal categorization, the Right Ascension (RA)
-and Declination (DEC) coordinates of the position in the sky, estimates of the power of the signal, 
-primary carrier frequency, etc. All RA/DEC coordinates are references from the J2000 equinox. A full
-description of the values in SignalDB are found [here](). Currently, the SignalDB is available on
+or `archive-compamp`, and the preliminary analysis of the signal, which is stored as a row
+in the `SignalDB` table. The raw data are the digitized time-series radio signals along two 
+polarizations within a particular bandwidth for a particular location in the sky. A [SignalDB row contains the conditions and characteristics of the observation](signaldb.md),
+such as the Right Ascension (RA) and Declination (DEC) celestial coordinates of the observation, an estimate of the power of the signal, primary carrier frequency, drift, signal classification,
+etc., which are derived from the raw data signals.  (All RA/DEC coordinates are referenced from 
+the J2000 equinox.)
+
+<!-- For this 
+project, we have stored the SignalDB on
 [dashDB](http://www.ibm.com/analytics/us/en/technology/cloud-data-services/dashdb) and the raw
-`compamp` and `archive-compamp` files are stored in [IBM Object Store](https://console.ng.bluemix.net/catalog/object-storage/).
+`compamp` and `archive-compamp` files in 
+[IBM Object Store](https://console.ng.bluemix.net/catalog/object-storage/).
+ -->
+We have constructed an HTTP API that allows you to access these data, which is described in this document. 
 
 The raw data for a signal that is categorized as a `Candidate` is stored as an `archive-compamp` file, 
-while other types signals are stored as `compamp` files. The only difference between these file types
-is that the `archive-compamp` contains signal across the entire bandwith observed by the ATA, while
-the `compamp` files contains just the data for the subband where `non-Candidate` signals was observed. 
+while all other types signals are stored as `compamp` files. An `archive-compamp` contains recorded data across the 16 subbands nearest to the signal observed 
+by the ATA.  However, the `compamp` files contain just the single subband where `non-Candidate`
+signals was observed. 
 
-This REST API allows you to search for `Candidate`/`archive-compamp` files based upon their position
-in the sky, the RA/DEC values. It will return to you the SignalDB row for each raw `archive-compamp`
-file, along with a temporary URL to download the `archive-compamp` file
+Right now, we are only making the `Candidate`/`archive-compamp` files and their associated
+rows in the SignalDB available. 
 
-Further enhancements to this API will allow for finding data based on other attributes.
+Further enhancements to this API will provide access to `compamp` and other ways of retrieving the data.
+
+### Data License
+
+This data is licensed by the SETI Institute of Mountain View, CA under the Create Commons BY 4.0 license.
+
+IBM has been granted non-exclusive permission by the SETI Institute to reproduce, 
+prepare derivative works, and distribute copies of data, which have been provided to IBM, 
+or will be provided in the future, by the SETI Institute under the Creative Commons BY 4.0 license.
 
 
 ## API Reference
@@ -33,8 +45,8 @@ Further enhancements to this API will allow for finding data based on other attr
 
   * [**/v1/coordinates/aca**](#celestial-coordinates-of-candidate-events)
   * [**/v1/aca/meta/{ra}/{dec}**](#meta-data-and-location-of-candidate-events)
-  * [**/v1/aca/meta/spacecraft**](#meta-data-and-location-of-candidate-events-for-pacecraft)
-  * [**/v1/token/{username}/{email address}**](#token-for-raw-data-access)
+  * [**/v1/aca/meta/spacecraft**](#meta-data-and-location-of-candidate-events-for-spacecraft)
+  * [**/v1/token/**](#token-for-raw-data-access) 
   * [**/v1/data/url/{container}/{objectname}**](#temporary-url-for-raw-data)
 
 
@@ -42,9 +54,9 @@ Further enhancements to this API will allow for finding data based on other attr
 
 ### Introduction
 
-The following example, done in Python, shows a typical way to use this REST API. 
+The following example, done in Python, shows a typical way to use this API. 
 
-The general flow is
+The general flow should be something like: 
 
   * Find an interesting target in the sky and note the coordinates.
   * Determine if data is available for a particular point or region in the sky.
@@ -55,16 +67,16 @@ The general flow is
 Though it's not necessary, typically one will start by selecting an interesting target or
 interesting region in the sky.  
 
-Once the authorization token system is implemented, you will be required to have an [IBM Bluemix](https://bluemix.net)
-account and will be limited to 10k temporary URL requests per month. 
+In order to access the raw data, however, you will be required to 
+have an [IBM Bluemix](https://bluemix.net)
+account. There is a limit of 10k temporary URL requests per month. 
 
-You may read below or [click here to see a full example in a shared IBM Spark notebook](https://console.ng.bluemix.net/data/notebooks/b05446cc-8303-4b1d-8150-2d55e49691ef/view?access_token=e70e82feeae786d3e57f2f918b4d22439723dd619e3059143942f0bdb4b9504c).
 
 ### Select an Interesting Target
 
 Use some kind of [source](http://phl.upr.edu/projects/habitable-exoplanets-catalog)
 to find interesting expolanet coordinates. There are other websites that carry this information.
-You can also pick a region in the sky. 
+You can also just pick a region in the sky. 
 [This map](http://www.hpcf.upr.edu/~abel/phl/exomaps/all_stars_with_exoplanets_white.png), 
 along with the `Observing Progress` link found on [https://setiquest.info](http://setiquest.info/),
 may be helpful.
@@ -88,7 +100,7 @@ The celestial coordinates for Kepler 1229b is RA = 19.832 and DEC = 46.997
 
 ### Query the SignalDB
 
-Here is the example code to query the API for a region about the position of Kepler 1229b. The API
+Here is the example code to query our API for a region about the position of Kepler 1229b. The API
 endpoint to use is [`/v1/coordinates/aca`](#celestial-coordinates-of-candidate-events). In this case,
 we define a 0.004 x 0.004 box around the RA/DEC position.
 
@@ -172,21 +184,22 @@ returns
 
 You may wish to extend your box further so see what you find. 
 
-### Get Raw Data URLs
+### Get SignalDB Rows
 
-Given a particular celestial coordinate, we can obtain all of the 'Candidate' signal meta data.
+Given a particular celestial coordinate, we can obtain all of the 'Candidate' signal meta data,
+as found in the SignalDB.
 
 The endpoint to use is 
-[/v1/aca/meta/{ra}/{dec}](#meta-data-and-location-of-candidate-events).
+[`/v1/aca/meta/{ra}/{dec}`](#meta-data-and-location-of-candidate-events).
 
 Continuing from the example above
 
 
 ```python
 ra = r.json()['rows'][0]['ra2000hr']  #19.832 from above query
-dec = r.json()['rows'][0]['dec2000deg'] 46.997 
+dec = r.json()['rows'][0]['dec2000deg'] #46.997 
 
-r = requests.get('https://setigopublic.mybluemix.net/v1/aca/meta/{}/{}'.format(ra, dec)
+r = requests.get('https://setigopublic.mybluemix.net/v1/aca/meta/{}/{}'.format(ra, dec))
 
 print json.dumps(r.json(), indent=1)
 ```
@@ -235,11 +248,11 @@ URL parameter. For example
 
 ```python 
 r = requests.get('https://setigopublic.mybluemix.net/v1/aca/meta/{}/{}?skip=200'.format(ra, dec)
-newrows = r.json()['rows']
+rows = r.json()['rows']
 ```
 
-Searching through these results, one thing you'll notice is that while there are 392
-'Candidate' signals found in the SignalDB meta data, it doesn't mean there are 392 raw data files. *There
+Searching through the results from this particular example, one thing you'll notice is that while there are 392
+'Candidate' signals found in the SignalDB, it doesn't mean there are 392 raw data files. *There
 will be duplicates.* So you'll need to sort through them appropriately. If you do not and you use
 the same raw data multiple times within a machine-learning algorithm (to extract a set of features, 
 for example), you'll likely corrupt your results. 
@@ -247,26 +260,46 @@ for example), you'll likely corrupt your results.
 An easy way to reorder your results by the raw data file is with a `groupby`. For example
 
 ```python
-rows # list of signalDB rows returned from above
+import itertools
+
 rows = sorted(rows, key=lambda row:row['container'] + '-' + row['objectname'])
 
-grl = []  #a list of (key, [rows])
-for k, g in itertools.groupby(rows, lambda row:row['container'] + '-' + row['objectname']):
-  grl.append((k, list(g))
+#grl is a list of (key, [rows])
+grl = [(k,list(g)) for k,g in itertools.groupby(rows, lambda row:row['container'] + '-' + row['objectname'])]
 
-# OR in Spark
-
+# equivalently in Spark. `sc` is a SparkContext object
 rdd = sc.parallelize(rows)
 rdd = rdd.groupBy(lambda row: row['container'] + '-' + row['objectname']) 
 ```
 
-You'll also notice there multiple files that have the same SignalDB meta-data, but with slightly
-different file names. The antenna data are decomposed into left- and right-circularly polarized
-complex data signals, which are stored in separate files; hence, the `L` and `R` components of the names.
+You'll also notice there multiple files that have the same SignalDB, but with names that differ only
+by a `L` or `R`. The ATA records signals along the horizontal and veritcal polarizations 
+(relative to the ATA's orientation to the Earth). The initial intent, however, was to record the
+left- and right-circularly polarized signals. This was not feasible for technical reasons, but 
+the naming convention stuck. The horizontal and vertical components of the signal are stored in the 
+`L` and `R` files, respectively.
 
 The location of the raw data is stored in an
-[IBM/Softlayer Object Store](https://developer.ibm.com/bluemix/2015/10/20/getting-started-with-bluemix-object-storage/).
+[IBM Object Store available on Bluemix](https://developer.ibm.com/bluemix/2015/10/20/getting-started-with-bluemix-object-storage/).
+
 In order to access those  data files, one must first request a temporary URL.
+
+NB: We separate the steps between getting the SignalDB row and container/objectname for the raw data
+file and getting a URL to the raw data file for a reason. Since downloading and analyzing the
+raw data can be an expensive operation, making these steps separate gives your analysis the
+opportunity to select only data, based on the values in SignalDB, that may be interesting. For example,
+you may wish to consider only data that have a particular Signal-To-Noise ratio (SNR is one of the values
+in SignalDB). Secondly, we issue temporary URLs that expire one hour after you've requested
+the URL, which allows us to control usage. 
+
+##### Spacecraft
+
+Since spacecraft do not have a fixed RA/DEC value, we have a special endpoint, 
+[`/v1/aca/meta/spacecraft`](#meta-data-and-location-of-candidate-events-for-spacecraft).
+
+Use this endpoint just as you would the `/v1/aca/meta/{ra}/{dec}`. The returned JSON will have
+the same schema. 
+
 
 ### Temporary URLs and Data Storage
 
@@ -275,19 +308,34 @@ The temporary URLs are obtained with the
 endpoint. *These temporary URLs, by default, are valid for only one hour.* You must consider this
 when obtaining the URLs and retrieving the data. 
 
+#### Access Tokens
+
+In order to request a temporary URL, however, you must supply an `access_token` as a query
+parameter to the request. An `access_token` can
+only be obtained if you have an account on [IBM Bluemix](http://www.ibm.com/cloud-computing/bluemix/) 
+or [IBM Data Science Experience](http://datascience.ibm.com/).
+
+You can obtain a token by clicking here and logging into your account.
+
+https://setigopublic.mybluemix.net/token
+
+You are limited to 10,000 temporary URLs per month. However, if you have a compelling reason (a good 
+idea for an analysis), you can [contact us](contact_us.md) and have your limited increased. 
 
 ```python
+param = {'access_token':'1234567890abcdefg'}
+
 def get_temp_url(row):
-  r = requests.get('https://setigopublic.mybluemix.net/v1/data/url/{}/{}'.format(row[0], row[1]))
+  
+  turl = 'https://setigopublic.mybluemix.net/v1/data/url/{}/{}'.format(row[0], row[1])
+  r = requests.get(turl, params=params)
+
   return (r.status_code, r.json()['temp_url'], row[0], row[1])
 
 temp_urls = map(get_temp_url, data_paths)
 ```
 
-For each temporary URL, we can now download the file and store it, or analyze it. 
-[Here is a complete example](https://console.ng.bluemix.net/data/notebooks/6818fe79-84f5-4c22-a800-b80aa7696ef4/view?access_token=c1a0bf78689d45d01425a5b8a59c886da55a16eb17c4708791c14551c3c17b21)
-using the IBM Spark Service to download and place data in
-[IBM Object Storage](https://developer.ibm.com/bluemix/2015/10/20/getting-started-with-bluemix-object-storage/).
+[With the temporary URL, we can now download, store and analyze the data file](notebooks).
 
 
 ## API Reference
@@ -422,9 +470,9 @@ the results.
 
 
 ### Meta-data and location of Candidate Events For Spacecraft
-##### GET /v1/aca/meta/spacecroft
+##### GET /v1/aca/meta/spacecraft
 
-**Description**: This method returns results exactly like [/v1/aca/meta/{ra}/{dec}](),
+**Description**: This method returns results exactly like [`/v1/aca/meta/{ra}/{dec}`](#meta-data-and-location-of-candidate-events),
 except that it returns all data for observed spacecraft (mainly satellites). 
 This returns a JSON object containing the meta-data and file location of 
 each candidate event. The meta-data are the data found
@@ -491,11 +539,16 @@ the results.
 
 
 ### Token for raw data access
-##### GET /v1/token/{username}/{email address}
+##### GET /v1/token
 
-**Description**: This is not yet implemented. Once implemented, this will create a 
-token for the user to access the data. 
+**Description**: This returns an `access_token`, which is required to access temporary URLs to the raw data. 
+This endpoint performs an OAuth2 with IBM Bluemix as the provider. It returns a simple JSON object
 
+```
+{
+  'access_token':'1234567890abcdefg'
+}
+```
 
 ### Temporary URL for raw data
 ##### GET /v1/data/url/{container}/{objectname}
@@ -504,21 +557,13 @@ token for the user to access the data.
 containing a temporary URL to the data file.
 The temporary URL will be valid for 60 minutes from the time it was issued. 
 The container and object name are obtained from the results of 
-[`/v1/aca/meta/{ra}/{dec}'](#meta-data-and-location-of-candidate-events)
-
-*When the `token` parameter is implemented, you will be rate-limited to 10k 
-temporary URLs per month. This is equivalent to 10 GB of raw data.*
-
-*If you can make a compelling argument, you may obtain
-an increase in the number of temporary URLs per month. Contact
-adamcox@us.ibm.com*
-
+[`/v1/aca/meta/{ra}/{dec}`](#meta-data-and-location-of-candidate-events) or
+[`/v1/aca/meta/spacecraft`](#meta-data-and-location-of-candidate-events-for-spacecraft).
 
 
   * **Required Parameters**
 
-    **token**: Not yet implemented. Once implemented, a token will be required for
-    data to be returned.
+    [`access_token`](#token-for-raw-data-access): supplied as a query parameter.
 
   * **Examples**:
 
@@ -526,11 +571,13 @@ adamcox@us.ibm.com*
     ```python
     import requests
 
+    params = {'access_token':'1234567890abcdefg'}
+
     cont = 'setiCompAmp'
     objname = '2014-05-20/act14944/2014-05-20_13-00-01_UTC.act14944.dx2016.id-0.L.archive-compamp'
 
     data_url = 'https://setigopublic.mybluemix.net/v1/data/url/{}/{}'.format(cont, objname)  
-    r_data_url = requests.get(data_url)
+    r_data_url = requests.get(data_url, params=params)
 
     print json.dumps(r.json(), indent=1)
     ```
@@ -555,4 +602,3 @@ adamcox@us.ibm.com*
     ```
     file size:  1061928
     ```
-
