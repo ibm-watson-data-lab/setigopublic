@@ -46,7 +46,7 @@ type CloudantSuccessfulPost struct {
 }
 
 type GetTokenResponse struct {
-	AccessToken string `json:"acces_token"` //this will be the same as the doc _id for the user's doc in Cloudant
+	AccessToken string `json:"access_token"` //this will be the same as the doc _id for the user's doc in Cloudant
 }
 
 type ViewRow struct {
