@@ -456,7 +456,7 @@ func GetACARawDataTempURL(w http.ResponseWriter, r *http.Request) {
 		Notice string `json:"license_notification"`
 	}
 
-	license := "This data is licensed by the SETI Institute under the Create Commons BY 4.0 license.  https://github.com/ibm-cds-labs/seti_at_ibm/blob/master/setigopublic.md#data-license"
+	license := "This data is licensed by the SETI Institute under the Creative Commons BY 4.0 license.  https://github.com/ibm-cds-labs/seti_at_ibm/blob/master/setigopublic.md#data-license"
 	returnData := ReturnData{Url: temp_url, Notice: license}
 
 	w.WriteHeader(http.StatusOK)

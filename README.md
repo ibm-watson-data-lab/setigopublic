@@ -32,7 +32,7 @@ Further enhancements to this API will provide access to `compamp` and other ways
 
 ### Data License
 
-This data is licensed by the SETI Institute of Mountain View, CA under the Create Commons BY 4.0 license.
+This data is licensed by the SETI Institute of Mountain View, CA under the Creative Commons BY 4.0 license.
 
 IBM has been granted non-exclusive permission by the SETI Institute to reproduce, 
 prepare derivative works, and distribute copies of data, which have been provided to IBM, 
