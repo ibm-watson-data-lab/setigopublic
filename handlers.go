@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"time"
+	"bytes"
 
 	cfenv "github.com/cloudfoundry-community/go-cfenv"
 	"github.com/gorilla/mux"
@@ -459,10 +460,17 @@ func GetACARawDataTempURL(w http.ResponseWriter, r *http.Request) {
 	license := "This data is licensed by the SETI Institute under the Creative Commons BY 4.0 license.  https://github.com/ibm-cds-labs/seti_at_ibm/blob/master/setigopublic.md#data-license"
 	returnData := ReturnData{Url: temp_url, Notice: license}
 
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(returnData); err != nil {
+	retjson, err := json.Marshal(returnData);
+	if  err != nil {
 		panic(err)
 	}
+
+	//fix the encoding bug where '&' is decoded by the json.Marshal
+  retjson = bytes.Replace(retjson, []byte("\\u0026"), []byte("&"), -1)
+
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write(retjson)
 
 }
 
