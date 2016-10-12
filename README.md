@@ -69,7 +69,7 @@ interesting region in the sky.
 
 In order to access the raw data, however, you will be required to 
 have an [IBM Bluemix](https://bluemix.net)
-account. There is a limit of 10k temporary URL requests per month. 
+account. There is a limit of 20k temporary URL requests per month. 
 
 
 ### Select an Interesting Target
@@ -243,7 +243,7 @@ Here's what the output will look like:
 }
 ```
 
-The maximum return limit is 200 rows per query. The `total_num_rows` tells you there are 392 rows. To get the rest, you'll need to use the `?skip=200` optional
+The maximum return limit is 2000 rows per query and default limit is 200. The `total_num_rows` tells you there are 392 rows. To get the rest, you'll need to use the `?skip=200` optional
 URL parameter. For example
 
 ```python 
@@ -319,7 +319,7 @@ You can obtain a token by clicking here and logging into your account.
 
 https://setigopublic.mybluemix.net/token
 
-You are limited to 10,000 temporary URLs per month. However, if you have a compelling reason (a good 
+You are limited to 20,000 temporary URLs per month. However, if you have a compelling reason (a good 
 idea for an analysis), you can [contact us](contact_us.md) and have your limited increased. 
 
 ```python
@@ -374,7 +374,7 @@ events found for that position (`number_of_candidates`).
 
     **skip**: number of results to skip
   
-    **limit**: number of results to return (maximum is 200)
+    **limit**: number of results to return (maximum is 2000, and default is 200)
 
   * **Examples**:
 
@@ -441,7 +441,7 @@ The structure of the JSON document is
 }
 ```
 
-Only 200 rows may be returned in a single query. Use the `skip` and `limit` options to paginate through
+Only 2000 rows may be returned in a single query. Use the `skip` and `limit` options to paginate through
 the results. 
 
 
@@ -450,7 +450,7 @@ the results.
 
     **skip**: number of results to skip
   
-    **limit**: number of results to return (maximum is 200)
+    **limit**: number of results to return (maximum is 2000 and default is 200)
 
   * **Examples**:
 
@@ -517,7 +517,7 @@ The structure of the JSON document is
 }
 ```
 
-Only 200 rows may be returned in a single query. Use the `skip` and `limit` options to paginate through
+Only 2000 rows may be returned in a single query. Use the `skip` and `limit` options to paginate through
 the results. 
 
 
@@ -525,7 +525,7 @@ the results.
 
     **skip**: number of results to skip
   
-    **limit**: number of results to return (maximum is 200)
+    **limit**: number of results to return (maximum is 2000, and default is 200)
 
   * **Examples**:
 

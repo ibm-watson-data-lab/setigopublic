@@ -161,12 +161,12 @@ func AcaByCoordinates(w http.ResponseWriter, r *http.Request) {
 	skiprows, _ := strconv.ParseInt(r.URL.Query().Get("skip"), 10, 64)
 
 	//use this to allow for a query to limit the number of returned rows.
-	//however, the maximum allowed is 200 rows per query
+	//however, the maximum allowed is 2000 rows per query
 	var limit int64 = 200
 	if r.URL.Query().Get("limit") != "" {
 		limit, _ = strconv.ParseInt(r.URL.Query().Get("limit"), 10, 64)
-		if limit > 200 {
-			limit = 200
+		if limit > 2000 {
+			limit = 2000
 		}
 	}
 
@@ -227,12 +227,12 @@ func SpaceCraft(w http.ResponseWriter, r *http.Request) {
 	skiprows, _ := strconv.ParseInt(r.URL.Query().Get("skip"), 10, 64)
 
 	//use this to allow for a query to limit the number of returned rows.
-	//however, the maximum allowed is 200 rows per query
+	//however, the maximum allowed is 2000 rows per query
 	var limit int64 = 200
 	if r.URL.Query().Get("limit") != "" {
 		limit, _ = strconv.ParseInt(r.URL.Query().Get("limit"), 10, 64)
-		if limit > 200 {
-			limit = 200
+		if limit > 2000 {
+			limit = 2000
 		}
 	}
 
@@ -293,12 +293,12 @@ func KnownCandCoordinates(w http.ResponseWriter, r *http.Request) {
 	skiprows, _ := strconv.ParseInt(r.URL.Query().Get("skip"), 10, 64)
 
 	//use this to allow for a query to limit the number of returned rows.
-	//however, the maximum allowed is 200 rows per query
+	//however, the maximum allowed is 2000 rows per query
 	var limit int64 = 200
 	if r.URL.Query().Get("limit") != "" {
 		limit, _ = strconv.ParseInt(r.URL.Query().Get("limit"), 10, 64)
-		if limit > 200 {
-			limit = 200
+		if limit > 2000 {
+			limit = 2000
 		}
 	}
 
