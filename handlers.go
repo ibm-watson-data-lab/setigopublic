@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"io"
+	//"io"
 	"log"
 	"net/http"
 	"os"
@@ -32,7 +32,8 @@ var oauthConfig = &oauth2.Config{
 }
 var sessionStore = sessions.NewCookieStore([]byte("$ECRET$ETIcode"))
 
-var signaldb_aca_zip_fileptr , _ = os.Open("static/signaldb_joined_with_all_candidate_aca_events_2013_2015.csv.gzip")
+var signalDbFilePath = "static/signaldb_joined_with_all_candidate_aca_events_2013_2015.csv.gzip"
+var signalDbFileSize = "19767241" 
 
 
 // Logout
@@ -480,14 +481,35 @@ func GetACARawDataTempURL(w http.ResponseWriter, r *http.Request) {
 
 func GetSignalDBJoinedACACandidateEvents(writer http.ResponseWriter, r *http.Request) {
 	
-	FileStat, _ := signaldb_aca_zip_fileptr.Stat()     //Get info from file
-	FileSize := strconv.FormatInt(FileStat.Size(), 10) //Get file size as a string
+	log.Printf(
+			"%s\t%s\t%s",
+			r.Method,
+			r.RequestURI,
+			"starting handler",
+		)
 
+	
 	writer.Header().Set("Content-Disposition", "attachment; filename=signaldb_joined_with_all_candidate_aca_events_2013_2015.csv.gzip")
 	writer.Header().Set("Content-Type", "application/x-gzip")
-	writer.Header().Set("Content-Length", FileSize)
+	writer.Header().Set("Content-Length", signalDbFileSize)
 
-	io.Copy(writer, signaldb_aca_zip_fileptr) //'Copy' the file to the client
+		log.Printf(
+			"%s\t%s\t%s",
+			r.Method,
+			r.RequestURI,
+			"starting serve",
+		)
+
+	//io.Copy(writer, signaldb_aca_zip_fileptr) //'Copy' the file to the client
+	http.ServeFile(writer, r, signalDbFilePath)
+
+	log.Printf(
+			"%s\t%s\t%s",
+			r.Method,
+			r.RequestURI,
+			"finished serve",
+		)
+
 	return
 }
 
