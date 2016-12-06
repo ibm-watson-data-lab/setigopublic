@@ -96,7 +96,14 @@ var routes = Routes{
 		false,
 		true,
 	},
-	
+	Route{
+		"signaldb_aca",
+		"GET",
+		"/v1/aca/meta/all",
+		GetSignalDBJoinedACACandidateEvents,
+		false,
+		false,
+	},
 	// ### Potential future API ###
 	// Route{
 	//     "CompampSingleFileByCoordinates",
