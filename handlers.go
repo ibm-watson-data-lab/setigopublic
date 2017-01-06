@@ -131,7 +131,7 @@ func Index(w http.ResponseWriter, r *http.Request) {
 	// print out html
 	fmt.Fprintln(w, "<html><head><title>SETI on IBM-Spark</title></head><body>")
 	fmt.Fprintln(w, "<p><h3>Welcome to SETI Public on Spark.</h3></p>")
-	fmt.Fprintln(w, "<p>Brought to you by IBM, the SETI Institute in Mountain View, CA and NASA.</p>")
+	fmt.Fprintln(w, "<p>Brought to you by IBM, and the SETI Institute in Mountain View, CA.</p>")
 	if !ok {
 		fmt.Fprintln(w, "<p><a href='/login'>Login with Bluemix</a></p>")
 	} else {
