@@ -32,7 +32,7 @@ var oauthConfig = &oauth2.Config{
 }
 var sessionStore = sessions.NewCookieStore([]byte("$ECRET$ETIcode"))
 
-var signalDbFilePath = "static/signaldb_joined_with_all_candidate_aca_events_2013_2015.csv.gzip"
+var signalDbFilePath = "static/signaldb_joined_with_all_candidate_aca_events_2013_2015.csv.gz"
 var signalDbFileSize = "19767241" 
 
 
@@ -489,7 +489,7 @@ func GetSignalDBJoinedACACandidateEvents(writer http.ResponseWriter, r *http.Req
 		)
 
 	
-	writer.Header().Set("Content-Disposition", "attachment; filename=signaldb_joined_with_all_candidate_aca_events_2013_2015.csv.gzip")
+	writer.Header().Set("Content-Disposition", "attachment; filename=signaldb_joined_with_all_candidate_aca_events_2013_2015.csv.gz")
 	writer.Header().Set("Content-Type", "application/x-gzip")
 	writer.Header().Set("Content-Length", signalDbFileSize)
 
